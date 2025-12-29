@@ -1,0 +1,137 @@
+version: 2.1
+
+orbs:
+  python: circleci/python@2.1.1
+
+executors:
+  playwright-executor:
+    docker:
+      - image: mcr.microsoft.com/playwright/python:v1.40.0-jammy
+    working_directory: ~/project
+
+jobs:
+  install-dependencies:
+    executor: playwright-executor
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - deps-v1-{{ checksum "requirements.txt" }}
+            - deps-v1-
+      - run:
+          name: Install dependencies
+          command: |
+            pip install -r requirements.txt
+      - save_cache:
+          key: deps-v1-{{ checksum "requirements.txt" }}
+          paths:
+            - ~/.cache/pip
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
+
+  test-smoke:
+    executor: playwright-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Run smoke tests
+          command: |
+            pytest -m smoke -v --alluredir=allure-results
+      - store_test_results:
+          path: allure-results
+      - store_artifacts:
+          path: allure-results
+          destination: allure-results
+
+  test-ui:
+    executor: playwright-executor
+    parallelism: 3
+    steps:
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Run UI tests
+          command: |
+            pytest -m ui -v --alluredir=allure-results
+      - store_test_results:
+          path: allure-results
+      - store_artifacts:
+          path: allure-results
+          destination: allure-results
+      - store_artifacts:
+          path: playwright-report
+          destination: playwright-report
+      - store_artifacts:
+          path: test-results
+          destination: test-results
+
+  test-api:
+    executor: playwright-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Run API tests
+          command: |
+            pytest -m api -v --alluredir=allure-results
+      - store_test_results:
+          path: allure-results
+      - store_artifacts:
+          path: allure-results
+          destination: allure-results
+
+  test-critical:
+    executor: playwright-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Run critical tests
+          command: |
+            pytest -m critical -v --alluredir=allure-results
+      - store_test_results:
+          path: allure-results
+      - store_artifacts:
+          path: allure-results
+          destination: allure-results
+
+workflows:
+  version: 2
+  test-pipeline:
+    jobs:
+      - install-dependencies
+      - test-smoke:
+          requires:
+            - install-dependencies
+      - test-critical:
+          requires:
+            - test-smoke
+      - test-ui:
+          requires:
+            - test-smoke
+      - test-api:
+          requires:
+            - test-smoke
+
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 2 * * *"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - install-dependencies
+      - test-smoke:
+          requires:
+            - install-dependencies
+      - test-ui:
+          requires:
+            - test-smoke
+      - test-api:
+          requires:
+            - test-smoke

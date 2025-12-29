@@ -1,0 +1,128 @@
+import httpx
+import allure
+from typing import Optional, Dict, Any
+from config.settings import Settings
+
+
+class APIClient:
+
+    def __init__(self, base_url: str, token: Optional[str] = None, api_key: Optional[str] = None):
+        self.base_url = base_url.rstrip('/')
+        self.token = token
+        self.api_key = api_key
+        self.client = httpx.Client(timeout=30.0)
+
+    def _get_headers(self, additional_headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        
+        if self.api_key:
+            headers["X-API-Key"] = self.api_key
+        
+        if additional_headers:
+            headers.update(additional_headers)
+        
+        return headers
+
+    @allure.step("GET {endpoint}")
+    def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, 
+            headers: Optional[Dict[str, str]] = None) -> httpx.Response:
+        url = f"{self.base_url}{endpoint}"
+        request_headers = self._get_headers(headers)
+        
+        with allure.step(f"Request: GET {url}"):
+            allure.attach(str(params), "Query Parameters", allure.attachment_type.JSON)
+            response = self.client.get(url, params=params, headers=request_headers)
+            allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
+            allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
+        
+        return response
+
+    @allure.step("POST {endpoint}")
+    def post(self, endpoint: str, json: Optional[Dict[str, Any]] = None,
+             headers: Optional[Dict[str, str]] = None) -> httpx.Response:
+        url = f"{self.base_url}{endpoint}"
+        request_headers = self._get_headers(headers)
+        
+        with allure.step(f"Request: POST {url}"):
+            allure.attach(str(json), "Request Body", allure.attachment_type.JSON)
+            response = self.client.post(url, json=json, headers=request_headers)
+            allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
+            allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
+        
+        return response
+
+    @allure.step("PUT {endpoint}")
+    def put(self, endpoint: str, json: Optional[Dict[str, Any]] = None,
+            headers: Optional[Dict[str, str]] = None) -> httpx.Response:
+        url = f"{self.base_url}{endpoint}"
+        request_headers = self._get_headers(headers)
+        
+        with allure.step(f"Request: PUT {url}"):
+            allure.attach(str(json), "Request Body", allure.attachment_type.JSON)
+            response = self.client.put(url, json=json, headers=request_headers)
+            allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
+            allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
+        
+        return response
+
+    @allure.step("DELETE {endpoint}")
+    def delete(self, endpoint: str, headers: Optional[Dict[str, str]] = None) -> httpx.Response:
+        url = f"{self.base_url}{endpoint}"
+        request_headers = self._get_headers(headers)
+        
+        with allure.step(f"Request: DELETE {url}"):
+            response = self.client.delete(url, headers=request_headers)
+            allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
+            allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
+        
+        return response
+
+    def close(self):
+        self.client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+
+class NodesAPIClient(APIClient):
+    def __init__(self, settings: Settings):
+        super().__init__(
+            base_url=settings.cp_nodes_api_url,
+            token=settings.api_token
+        )
+
+    def create_node(self, node_data: Dict[str, Any]) -> httpx.Response:
+        return self.post("/ui/nodes", json=node_data)
+
+    def get_nodes(self, filters: Optional[Dict[str, Any]] = None) -> httpx.Response:
+        return self.get("/ui/nodes", params=filters)
+
+    def get_node(self, node_id: str) -> httpx.Response:
+        return self.get(f"/ui/nodes/{node_id}")
+
+    def update_node(self, node_id: str, update_data: Dict[str, Any]) -> httpx.Response:
+        return self.put(f"/ui/nodes/{node_id}", json=update_data)
+
+    def delete_node(self, node_id: str) -> httpx.Response:
+        return self.delete(f"/ui/nodes/{node_id}")
+
+
+class InternalAPIClient(APIClient):
+
+    def __init__(self, settings: Settings):
+        super().__init__(
+            base_url=settings.cp_internal_api_url,
+            api_key=settings.api_key
+        )
+
+    def register_worker(self, worker_id: str, worker_data: Dict[str, Any]) -> httpx.Response:
+        return self.put(f"/internal/workers/{worker_id}", json=worker_data)
+
+    def confirm_deletion(self, node_id: str) -> httpx.Response:
+        return self.post(f"/internal/nodes/{node_id}/confirm-delete")
