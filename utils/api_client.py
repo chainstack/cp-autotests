@@ -6,9 +6,10 @@ from config.settings import Settings
 
 class APIClient:
 
-    def __init__(self, base_url: str, token: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, base_url: str, token: Optional[str] = None, refresh_token: Optional[str] = None, api_key: Optional[str] = None):
         self.base_url = base_url.rstrip('/')
         self.token = token
+        self.refresh_token = refresh_token
         self.api_key = api_key
         self.client = httpx.Client(timeout=30.0)
 
@@ -155,10 +156,11 @@ class InternalAPIClient(APIClient):
 
 class AuthAPIClient(APIClient):
 
-    def __init__(self, settings: Settings, token: Optional[str] = None):
+    def __init__(self, settings: Settings, token: Optional[str] = None, refresh_token: Optional[str] = None):
         super().__init__(
             base_url=settings.cp_nodes_api_url,
-            token=token
+            token=token,
+            refresh_token=refresh_token
         )
 
     def login(self, username: any = None, password: any = None) -> httpx.Response:        
@@ -174,11 +176,12 @@ class AuthAPIClient(APIClient):
     def get_profile(self) -> httpx.Response:
         return self.get("/v1/auth/profile")
 
-    def change_password(self, old_password: str, new_password: str) -> httpx.Response:
+    def change_password(self, old_password: Optional[str] = None, new_password: Optional[str] = None) -> httpx.Response:
         return self.put("/v1/auth/password", json={"old_password": old_password, "new_password": new_password})
 
-    def change_username(self, new_username: str) -> httpx.Response:
+    def change_username(self, new_username: Optional[str] = None) -> httpx.Response:
         return self.put("/v1/auth/username", json={"new_username": new_username})
 
-    def get_audit_log(self, page: int = 1, page_size: int = 20) -> httpx.Response:
-        return self.get("/v1/auth/audit-log", params={"page": page, "page_size": page_size})
+    def get_audit_log(self, page: Optional[int] = None, page_size: Optional[int] = None) -> httpx.Response:
+        params = {"page": page, "page_size": page_size} if page and page_size else None
+        return self.get("/v1/auth/audit-log", params=params)

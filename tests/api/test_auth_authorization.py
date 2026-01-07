@@ -189,9 +189,8 @@ class TestAuthorization:
     @allure.title("Rate limiting on authentication endpoints")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.slow
-    @pytest.mark.skip(reason="Rate limiting behavior needs to be clarified with API specification")
     def test_rate_limiting(self, auth_client, invalid_credentials):
-        """        
+        """
         TODO: Clarify rate limit thresholds:
         - How many requests allowed?
         - Time window (per minute/hour)?
