@@ -80,6 +80,31 @@ class APIClient:
         
         return response
 
+    @allure.step("Custom Request {method} {endpoint}")
+    def send_custom_request(self, method: str, endpoint: str, 
+                           json: Optional[Dict[str, Any]] = None,
+                           params: Optional[Dict[str, Any]] = None) -> httpx.Response:
+        if method.upper() == "GET":
+            return self.get(endpoint, params=params)
+        elif method.upper() == "POST":
+            return self.post(endpoint, json=json)
+        elif method.upper() == "PUT":
+            return self.put(endpoint, json=json)
+        elif method.upper() == "DELETE":
+            return self.delete(endpoint)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+
+    def set_cookies(self, cookies: Dict[str, str]):
+        for name, value in cookies.items():
+            self.client.cookies.set(name, value)
+
+    def get_cookies(self) -> Dict[str, str]:
+        return dict(self.client.cookies)
+
+    def clear_cookies(self):
+        self.client.cookies.clear()
+
     def close(self):
         self.client.close()
 
@@ -126,3 +151,34 @@ class InternalAPIClient(APIClient):
 
     def confirm_deletion(self, node_id: str) -> httpx.Response:
         return self.post(f"/internal/nodes/{node_id}/confirm-delete")
+
+
+class AuthAPIClient(APIClient):
+
+    def __init__(self, settings: Settings, token: Optional[str] = None):
+        super().__init__(
+            base_url=settings.cp_nodes_api_url,
+            token=token
+        )
+
+    def login(self, username: any = None, password: any = None) -> httpx.Response:        
+        return self.post("/v1/auth/login", json={"username": username, "password": password})
+
+    def refresh_token(self, refresh_token: str) -> httpx.Response:
+        return self.post("/v1/auth/refresh", json={"refresh_token": refresh_token})
+
+    def logout(self, refresh_token: Optional[str] = None) -> httpx.Response:
+        payload = {"refresh_token": refresh_token} if refresh_token else {}
+        return self.post("/v1/auth/logout", json=payload)
+
+    def get_profile(self) -> httpx.Response:
+        return self.get("/v1/auth/profile")
+
+    def change_password(self, old_password: str, new_password: str) -> httpx.Response:
+        return self.put("/v1/auth/password", json={"old_password": old_password, "new_password": new_password})
+
+    def change_username(self, new_username: str) -> httpx.Response:
+        return self.put("/v1/auth/username", json={"new_username": new_username})
+
+    def get_audit_log(self, page: int = 1, page_size: int = 20) -> httpx.Response:
+        return self.get("/v1/auth/audit-log", params={"page": page, "page_size": page_size})
