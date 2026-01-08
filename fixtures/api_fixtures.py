@@ -1,5 +1,5 @@
 import pytest
-from utils.api_client import NodesAPIClient, InternalAPIClient, AuthAPIClient
+from clients.api_client import NodesAPIClient, InternalAPIClient, AuthAPIClient
 from config.settings import Settings
 from faker import Faker
 

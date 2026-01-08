@@ -1,5 +1,5 @@
 import pytest
-from utils.eth_client import EthereumClient
+from clients.eth_client import EthereumClient
 from config.settings import Settings
 
 

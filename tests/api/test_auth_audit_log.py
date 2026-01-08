@@ -156,7 +156,7 @@ class TestAuditLogAccess:
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
 
     @allure.title("Get audit log with invalid access token")
-    @allure.severity(allure.severity_level.CRITICAL)
+    @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("invalid_token", generate_invalid_bearer_tokens())
     def test_get_audit_log_with_invalid_access_token(self, auth_client, invalid_token):
         response = auth_client.get_audit_log(token=invalid_token)        
@@ -167,7 +167,7 @@ class TestAuditLogAccess:
 
     
     @allure.title("Get audit log with wrong auth type")
-    @allure.severity(allure.severity_level.CRITICAL)
+    @allure.severity(allure.severity_level.NORMAL)
     def test_get_audit_log_with_wrong_auth_type(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
         headers["Authorization"] = "Basic " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
@@ -177,7 +177,7 @@ class TestAuditLogAccess:
         authenticated_auth_client.headers = headers
 
     @allure.title("Get audit log with wrong auth format")
-    @allure.severity(allure.severity_level.CRITICAL)
+    @allure.severity(allure.severity_level.NORMAL)
     def test_get_audit_log_with_wrong_auth_format(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
         headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
@@ -187,7 +187,7 @@ class TestAuditLogAccess:
         authenticated_auth_client.headers = headers
 
     @allure.title("Get audit log with too long access token")
-    @allure.severity(allure.severity_level.CRITICAL)
+    @allure.severity(allure.severity_level.NORMAL)
     def test_get_audit_log_with_too_long_access_token(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
         headers["Authorization"] = "Bearer " + "a" * 20480 
@@ -197,7 +197,7 @@ class TestAuditLogAccess:
         authenticated_auth_client.headers = headers
 
     @allure.title("Get audit log with revoked access token")
-    @allure.severity(allure.severity_level.CRITICAL)
+    @allure.severity(allure.severity_level.NORMAL)
     def test_get_audit_log_with_revoked_access_token(self, authenticated_auth_client):
         authenticated_auth_client.logout()
         response = authenticated_auth_client.get_audit_log()       
@@ -206,7 +206,7 @@ class TestAuditLogAccess:
         authenticated_auth_client.login()
 
     @allure.title("Get audit log check response headers")
-    @allure.severity(allure.severity_level.CRITICAL)
+    @allure.severity(allure.severity_level.NORMAL)
     def test_get_audit_log_check_response_headers(self, authenticated_auth_client):
         response = authenticated_auth_client.get_audit_log()       
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
