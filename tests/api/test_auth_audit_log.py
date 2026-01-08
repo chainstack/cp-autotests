@@ -1,9 +1,10 @@
 import pytest
 import allure
 from pydantic import ValidationError
-from tests.api.schemas.auth_schemas import AuditLogResponse, AuditLogEntry, ErrorResponse
+from tests.api.schemas.auth_schemas import AuditLogResponse, ErrorResponse
 from tests.api.cases.const import MAX_64_BIT_INT
 from tests.api.cases.test_cases import NONINTEGER_CASES
+from utils.token_generator import generate_invalid_bearer_tokens
 
 
 @allure.feature("Authentication")
@@ -94,6 +95,22 @@ class TestAuditLog:
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
 
+    @allure.title("Get audit log handles request with page param only")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_audit_log_page_only(self, authenticated_auth_client):
+        response = authenticated_auth_client.get_audit_log(page=1)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        AuditLogResponse(**response.json())
+
+    @allure.title("Get audit log handles request with page_size param only")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_audit_log_page_size_only(self, authenticated_auth_client):
+        response = authenticated_auth_client.get_audit_log(page_size=20)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        AuditLogResponse(**response.json())
+
     @allure.title("Get audit log with extra query parameters")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("extra_field, extra_param", [("extra_field", "extra_param"), ("test", "test"), ("page_length", "1"), ("page_volume", "20")])
@@ -125,3 +142,80 @@ class TestAuditLog:
                 assert entry.user_id, "Audit entry should have user_id"
                 assert entry.action, "Audit entry should have action"
                 assert entry.timestamp, "Audit entry should have timestamp"
+
+@allure.feature("Authentication")
+@allure.story("Audit Log")
+@pytest.mark.api
+class TestAuditLogAccess:
+
+    @allure.title("Get audit log without access token")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.smoke
+    def test_get_audit_log_without_access_token(self, auth_client):
+        response = auth_client.get_audit_log()        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+
+    @allure.title("Get audit log with invalid access token")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.parametrize("invalid_token", generate_invalid_bearer_tokens())
+    def test_get_audit_log_with_invalid_access_token(self, auth_client, invalid_token):
+        response = auth_client.get_audit_log(token=invalid_token)        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+
+    #TODO Add cases for IDOR / Broken access control when user creation flow will be clarified
+
+    
+    @allure.title("Get audit log with wrong auth type")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_get_audit_log_with_wrong_auth_type(self, authenticated_auth_client):
+        headers = authenticated_auth_client.headers.copy() 
+        headers["Authorization"] = "Basic " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        response = authenticated_auth_client.get_audit_log()       
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.headers = headers
+
+    @allure.title("Get audit log with wrong auth format")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_get_audit_log_with_wrong_auth_format(self, authenticated_auth_client):
+        headers = authenticated_auth_client.headers.copy() 
+        headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        response = authenticated_auth_client.get_audit_log()       
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.headers = headers
+
+    @allure.title("Get audit log with too long access token")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_get_audit_log_with_too_long_access_token(self, authenticated_auth_client):
+        headers = authenticated_auth_client.headers.copy() 
+        headers["Authorization"] = "Bearer " + "a" * 20480 
+        response = authenticated_auth_client.get_audit_log()       
+        assert response.status_code == 431, f"Expected 431, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.headers = headers
+
+    @allure.title("Get audit log with revoked access token")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_get_audit_log_with_revoked_access_token(self, authenticated_auth_client):
+        authenticated_auth_client.logout()
+        response = authenticated_auth_client.get_audit_log()       
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.login()
+
+    @allure.title("Get audit log check response headers")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_get_audit_log_check_response_headers(self, authenticated_auth_client):
+        response = authenticated_auth_client.get_audit_log()       
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.headers["Cache-Control"] == "no-store", "Cache-Control should be no-store"
+        assert response.headers["Expires"] == "0", "Expires should be 0"
+        assert response.headers["Pragma"] == "no-cache", "Pragma should be no-cache"
+
+
+    
+
+
+    

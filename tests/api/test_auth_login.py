@@ -29,6 +29,23 @@ class TestLogin:
         except ValidationError as e:
             pytest.fail(f"Response schema validation failed: {e}")
 
+    @allure.title("Successful recurrent login with valid credentials")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.smoke
+    def test_login_success(self, auth_client, valid_credentials, authenticated_auth_client):
+
+        logout_response = authenticated_auth_client.logout()
+        
+        assert logout_response.status_code == 200, f"Expected 200, got {logout_response.status_code}"
+        
+        login_response = auth_client.login(
+            valid_credentials["username"],
+            valid_credentials["password"]
+        ) 
+        
+        assert login_response.status_code == 200, f"Expected 200, got {login_response.status_code}"
+        LoginResponse(**login_response.json())
+
     @allure.title("Login fails with invalid username")
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.smoke
@@ -64,6 +81,47 @@ class TestLogin:
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
+
+    @allure.title("Login fails with stripcases for username and password")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("username, password", [
+        (f" {valid_credentials["username"]}", valid_credentials["password"]),
+        (f"{valid_credentials["username"]} ", valid_credentials["password"]),
+        (f" {valid_credentials["username"]} ", valid_credentials["password"]),
+        (valid_credentials["username"], f" {valid_credentials["password"]}"),
+        (valid_credentials["username"], f"{valid_credentials["password"]} "),
+        (valid_credentials["username"], f" {valid_credentials["password"]} "),
+        (f" {valid_credentials["username"]}", f" {valid_credentials["password"]}"),
+        (f"{valid_credentials["username"]} ", f"{valid_credentials["password"]} "),
+        (f" {valid_credentials["username"]} ", f" {valid_credentials["password"]} "),
+        ])
+    def test_login_stripcases(self, auth_client, username, password):
+        response = auth_client.login(username, password)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+
+    @allure.title("Login fails with wrong case for username and password")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("username, password", [
+        (valid_credentials["username"].upper(), valid_credentials["password"]),
+        (valid_credentials["username"].lower(), valid_credentials["password"]),
+        (valid_credentials["username"], valid_credentials["password"].upper()),
+        (valid_credentials["username"], valid_credentials["password"].lower()),
+        (valid_credentials["username"].upper(), valid_credentials["password"].upper()),
+        (valid_credentials["username"].lower(), valid_credentials["password"].lower()),
+        (valid_credentials["username"].upper(), valid_credentials["password"].lower()),
+        (valid_credentials["username"].lower(), valid_credentials["password"].upper()),
+        (valid_credentials["username"].swapcase(), valid_credentials["password"]),
+        (valid_credentials["username"], valid_credentials["password"].swapcase()),
+        (valid_credentials["username"].swapcase(), valid_credentials["password"].swapcase())
+    ])
+    def test_login_wrong_case(self, auth_client, username, password):
+        response = auth_client.login(username, password)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+
 
     @allure.title("Login fails with bad type username")
     @allure.severity(allure.severity_level.NORMAL)
@@ -164,7 +222,7 @@ class TestLogin:
 
     @allure.title("Multiple successful logins generate different tokens")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_login_multiple_tokens(self, auth_client, valid_credentials):
+    def test_login_multiple_tokens(self, auth_client, valid_credentials, authenticated_auth_client):
         response1 = auth_client.login(
             valid_credentials["username"],
             valid_credentials["password"]
@@ -182,3 +240,17 @@ class TestLogin:
         token2 = response2.json()["access_token"]
         
         assert token1 != token2, "Multiple logins should generate different access tokens"
+
+        authenticated_auth_client.token = token1
+        get_profile_response = authenticated_auth_client.get_profile()
+        
+        assert get_profile_response.status_code == 200
+        ProfileResponse(**get_profile_response.json())
+        
+        authenticated_auth_client.token = token2
+        get_profile_response = authenticated_auth_client.get_profile()
+        
+        assert get_profile_response.status_code == 200
+        ProfileResponse(**get_profile_response.json())
+
+

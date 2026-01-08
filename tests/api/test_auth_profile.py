@@ -32,8 +32,8 @@ class TestProfile:
     @allure.title("Get profile fails without authentication token")
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.smoke
-    def test_get_profile_without_token(self, auth_client):
-        response = auth_client.get_profile()
+    def test_get_profile_without_token(self, authenticated_auth_client):
+        response = authenticated_auth_client.get_profile()
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -41,10 +41,10 @@ class TestProfile:
     @allure.title("Get profile fails with invalid token")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("invalid_token", generate_invalid_tokens())
-    def test_get_profile_invalid_token(self, auth_client, invalid_token):
-        auth_client.token = invalid_token
+    def test_get_profile_invalid_token(self, authenticated_auth_client, invalid_token):
+        authenticated_auth_client.token = invalid_token
         
-        response = auth_client.get_profile()
+        response = authenticated_auth_client.get_profile()
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -52,21 +52,23 @@ class TestProfile:
     #TODO add expired token generation
     @allure.title("Get profile fails with expired token")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_get_profile_expired_token(self, auth_client):
+    def test_get_profile_expired_token(self, authenticated_auth_client):
+        token = authenticated_auth_client.token
         expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj0vVzr7B8Y8P9nGJ5pZXkJZ5JZ5JZ5JZ5JZ5JZ5"
-        auth_client.token = expired_token
+        authenticated_auth_client.token = expired_token
         
-        response = auth_client.get_profile()
+        response = authenticated_auth_client.get_profile()
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
+        authenticated_auth_client.token = token
 
     @allure.title("Profile data matches login response user data")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_profile_matches_login_data(self, auth_client, valid_credentials):
+    def test_profile_matches_login_data(self, authenticated_auth_client, valid_credentials):
         from tests.api.schemas.auth_schemas import LoginResponse
         
-        login_response = auth_client.login(
+        login_response = authenticated_auth_client.login(
             valid_credentials["username"],
             valid_credentials["password"]
         )

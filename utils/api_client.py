@@ -91,6 +91,8 @@ class APIClient:
             return self.post(endpoint, json=json)
         elif method.upper() == "PUT":
             return self.put(endpoint, json=json)
+        elif method.upper == "PATCH":
+            return self.patch(endpoint, json=json)
         elif method.upper() == "DELETE":
             return self.delete(endpoint)
         else:
