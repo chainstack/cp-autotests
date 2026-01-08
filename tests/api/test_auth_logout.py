@@ -9,7 +9,7 @@ from utils.token_generator import generate_invalid_refresh_tokens, generate_expi
 @allure.feature("Authentication")
 @allure.story("Logout")
 @pytest.mark.api
-class TestLogout:
+class TestLogoutGeneral:
 
     @allure.title("Successfully logout with valid token")
     @allure.severity(allure.severity_level.CRITICAL)
@@ -24,6 +24,8 @@ class TestLogout:
         except ValidationError as e:
             pytest.fail(f"Logout response schema validation failed: {e}")
 
+
+class TestLogoutRefreshToken:
     @allure.title("Successfully logout without providing refresh token in body")
     @allure.severity(allure.severity_level.NORMAL)
     def test_logout_without_refresh_token_in_body(self, authenticated_auth_client):
@@ -36,44 +38,11 @@ class TestLogout:
         except ValidationError as e:
             pytest.fail(f"Logout response schema validation failed: {e}")
 
-
-    @allure.title("Logout fails without authentication token")
-    @allure.severity(allure.severity_level.CRITICAL)
-    @pytest.mark.smoke
-    def test_logout_without_auth_token(self, auth_client):
-        logout_response = auth_client.logout()
-        
-        assert logout_response.status_code == 401, f"Expected 401, got {logout_response.status_code}"
-        ErrorResponse(**logout_response.json())
-
     @allure.title("Logout with empty string refresh token")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("empty_string", EMPTY_STRING_CASES)
     def test_logout_with_empty_string_refresh_token_in_body(self, authenticated_auth_client, empty_string):
         logout_response = authenticated_auth_client.logout(empty_string)
-        assert logout_response.status_code == 401, f"Expected 401, got {logout_response.status_code}"
-        ErrorResponse(**logout_response.json())
-
-    @allure.title("Logout fails with invalid authentication token")
-    @allure.severity(allure.severity_level.NORMAL)
-    @pytest.mark.parametrize("invalid_token", generate_invalid_refresh_tokens())
-    def test_logout_with_invalid_token(self, auth_client, invalid_token):
-        auth_client.token = invalid_token
-        
-        logout_response = auth_client.logout()
-        
-        assert logout_response.status_code == 401, f"Expected 401, got {logout_response.status_code}"
-        ErrorResponse(**logout_response.json())
-
-    # TODO: generate_expired_token
-    @allure.title("Logout fails with expired authentication token")
-    @allure.severity(allure.severity_level.NORMAL)
-    @pytest.mark.parametrize("expired_token", generate_expired_token())
-    def test_logout_with_expired_token(self, auth_client, expired_token):
-        auth_client.token = expired_token
-        
-        logout_response = auth_client.logout()
-        
         assert logout_response.status_code == 401, f"Expected 401, got {logout_response.status_code}"
         ErrorResponse(**logout_response.json())
 
@@ -202,5 +171,65 @@ class TestLogoutRaceConditions:
         ErrorResponse(**refresh_response.json())
 
     
+@allure.feature("Authentication")
+@allure.story("Logout")
+@pytest.mark.api
+class TestLogoutQueryManipulation:
 
+    @allure.title("Logout fails with malformed JSON")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("json", [
+                "",                                 
+                "{}",                               
+                "{",                                
+                "}",                                
+                '{"refresh_token": "qwerty"',              
+                '{"refresh_token": "qwerty",}',             
+                '{"refresh_token": qwerty}',                
+                "{refresh_token: \"qwerty\"}",              
+                '{"refresh_token": "qwerty", "refresh_token": }',
+                '["refresh_token",',           
+                '{"refresh_token": }', 
+                '{"refresh_token": "юникод"}',
+                "null",                              
+                "true",                              
+                "123",                               
+            ])
+    def test_logout_malformed_json(self, auth_client, json):
+        response = auth_client.client.post(
+            f"{auth_client.base_url}/v1/auth/logout",
+            content=json,
+            headers={"Content-Type": "application/json"}
+        )
+        
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+
+    @allure.title("Logout without content type")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_logout_without_content_type(self, auth_client):
+        headers = auth_client.headers.copy() 
+        headers.pop("Content-Type")
+        response = auth_client.logout()       
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        ErrorResponse(**response.json())
+        auth_client.headers = headers
+
+    @allure.title("Logout with wrong content type")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("content_type", ["text/plain", "application/xml", "application/json; charset=utf-8"])
+    def test_logout_with_wrong_content_type(self, auth_client, content_type):
+        headers = auth_client.headers.copy() 
+        headers["Content-Type"] = content_type
+        response = auth_client.logout()       
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        ErrorResponse(**response.json())
+        auth_client.headers = headers
+
+    @allure.title("Logout check cache")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_logout_check_cache(self, auth_client):
+        response = auth_client.logout()       
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.headers["Cache-Control"] == "no-cache, no-store, must-revalidate", "Cache-Control header should be set to no-cache, no-store, must-revalidate"
+        assert response.headers["Pragma"] == "no-cache", "Pragma header should be set to no-cache"
 

@@ -8,7 +8,7 @@ from tests.api.cases.test_cases import EMPTY_STRING_CASES, NONSTRING_CASES
 @allure.feature("Authentication")
 @allure.story("Login")
 @pytest.mark.api
-class TestLogin:
+class TestLoginGeneral:
 
     @allure.title("Successful login with valid credentials")
     @allure.severity(allure.severity_level.CRITICAL)
@@ -45,6 +45,11 @@ class TestLogin:
         
         assert login_response.status_code == 200, f"Expected 200, got {login_response.status_code}"
         LoginResponse(**login_response.json())
+
+@allure.feature("Authentication")
+@allure.story("Login")
+@pytest.mark.api
+class TestLoginFieldsValidation:
 
     @allure.title("Login fails with invalid username")
     @allure.severity(allure.severity_level.CRITICAL)
@@ -174,7 +179,12 @@ class TestLogin:
         
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
-    
+
+@allure.feature("Authentication")
+@allure.story("Login")
+@pytest.mark.api
+class TestLoginQueryManipulation:
+
     @allure.title("Login fails with malformed JSON")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("json", [
@@ -202,6 +212,46 @@ class TestLogin:
         )
         
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+
+    @allure.title("Login without content type")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_login_without_content_type(self, auth_client, valid_credentials):
+        headers = auth_client.headers.copy() 
+        headers.pop("Content-Type")
+        response = auth_client.login(valid_credentials["username"], valid_credentials["password"])       
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        ErrorResponse(**response.json())
+        auth_client.headers = headers
+
+    @allure.title("Login with wrong content type")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("content_type", ["text/plain", "application/xml", "application/json; charset=utf-8"])
+    def test_login_with_wrong_content_type(self, auth_client, valid_credentials, content_type):
+        headers = auth_client.headers.copy() 
+        headers["Content-Type"] = content_type
+        response = auth_client.login(valid_credentials["username"], valid_credentials["password"])       
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        ErrorResponse(**response.json())
+        auth_client.headers = headers
+
+    @allure.title("Login with wrong method")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("method", ["PUT", "PATCH"])
+    def test_login_with_wrong_method(self, auth_client, valid_credentials, method):
+        response = auth_client.client.send_custom_request(method, "/v1/auth/login", json={
+            "username": valid_credentials["username"],
+            "password": valid_credentials["password"]
+        })       
+        assert response.status_code == 405, f"Expected 405, got {response.status_code}"
+        ErrorResponse(**response.json())
+
+    @allure.title("Login check cache")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_login_check_cache(self, auth_client, valid_credentials):
+        response = auth_client.login(valid_credentials["username"], valid_credentials["password"])       
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.headers["Cache-Control"] == "no-cache, no-store, must-revalidate", "Cache-Control header should be set to no-cache, no-store, must-revalidate"
+        assert response.headers["Pragma"] == "no-cache", "Pragma header should be set to no-cache"
 
     @allure.title("Login response contains correct CORS headers")
     @allure.severity(allure.severity_level.MINOR)

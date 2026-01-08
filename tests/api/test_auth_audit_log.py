@@ -10,7 +10,7 @@ from utils.token_generator import generate_invalid_bearer_tokens
 @allure.feature("Authentication")
 @allure.story("Audit Log")
 @pytest.mark.api
-class TestAuditLog:
+class TestAuditLogGeneral:
 
     @allure.title("Get audit log successfully with default pagination")
     @allure.severity(allure.severity_level.CRITICAL)
@@ -28,13 +28,10 @@ class TestAuditLog:
         except ValidationError as e:
             pytest.fail(f"Audit log response schema validation failed: {e}")
 
-    @allure.title("Get audit log requires authentication")
-    @allure.severity(allure.severity_level.CRITICAL)
-    def test_get_audit_log_requires_auth(self, auth_client):
-        response = auth_client.get_audit_log()
-        
-        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
-        ErrorResponse(**response.json())
+@allure.feature("Authentication")
+@allure.story("Audit Log")
+@pytest.mark.api
+class TestAuditLogPaginationQueryParams:
 
     @allure.title("Get audit log with valid pagination parameters")
     @allure.severity(allure.severity_level.NORMAL)
@@ -129,6 +126,10 @@ class TestAuditLog:
         assert extra_field not in response.json(), f"Extra field {extra_field} should not be in response"
         AuditLogResponse(**response.json())
 
+@allure.feature("Authentication")
+@allure.story("Audit Log")
+@pytest.mark.api
+class TestAuditLogStructure:
     @allure.title("Audit log entry structure validation")
     @allure.severity(allure.severity_level.NORMAL)
     def test_audit_log_entry_structure(self, authenticated_auth_client):
@@ -142,6 +143,25 @@ class TestAuditLog:
                 assert entry.user_id, "Audit entry should have user_id"
                 assert entry.action, "Audit entry should have action"
                 assert entry.timestamp, "Audit entry should have timestamp"
+
+    @allure.title("Audit log updates as expected")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_audit_log_entry_structure(self, authenticated_auth_client, valid_credentials, valid_username):
+        authenticated_auth_client.logout()
+        authenticated_auth_client.login(valid_credentials["username"], valid_credentials["password"])
+        authenticated_auth_client.change_username(valid_username)
+        valid_credentials["username"] = valid_username
+        response = authenticated_auth_client.get_audit_log()
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.json()["results"][0]["action"] == "change_username", "Audit log should have change_username action"
+        assert response.json()["results"][0]["user_id"] == valid_credentials["user_id"], "Audit log should have user_id"
+        assert response.json()["results"][0]["timestamp"] == valid_credentials["timestamp"], "Audit log should have timestamp"
+        assert response.json()["results"][1]["action"] == "login", "Audit log should have login action"
+        assert response.json()["results"][1]["user_id"] == valid_credentials["user_id"], "Audit log should have user_id"
+        assert response.json()["results"][1]["timestamp"] == valid_credentials["timestamp"], "Audit log should have timestamp"
+        assert response.json()["results"][2]["action"] == "logout", "Audit log should have logout action"
+        assert response.json()["results"][2]["user_id"] == valid_credentials["user_id"], "Audit log should have user_id"
+        assert response.json()["results"][2]["timestamp"] == valid_credentials["timestamp"], "Audit log should have timestamp"    
 
 @allure.feature("Authentication")
 @allure.story("Audit Log")
