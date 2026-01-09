@@ -8,7 +8,7 @@ from tests.api.cases.test_cases import EMPTY_STRING_CASES, NONSTRING_CASES
 @allure.feature("Authentication")
 @allure.story("Username Change")
 @pytest.mark.api
-class TestUsernameChange:
+class TestUsernameChangeGeneral:
     #TODO clarify username requirements
     @allure.title("Change username successfully with valid username")
     @allure.severity(allure.severity_level.CRITICAL)
@@ -24,13 +24,10 @@ class TestUsernameChange:
         except ValidationError as e:
             pytest.fail(f"Username change response schema validation failed: {e}")
 
-    @allure.title("Change username requires authentication")
-    @allure.severity(allure.severity_level.CRITICAL)
-    def test_change_username_requires_auth(self, auth_client):
-        response = auth_client.change_username("newusername")
-        
-        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
-        ErrorResponse(**response.json())
+@allure.feature("Authentication")
+@allure.story("Username Change")
+@pytest.mark.api
+class TestUsernameChangeUsernameValidation:  
 
     @allure.title("Change username with missing new_username")
     @allure.severity(allure.severity_level.NORMAL)
@@ -148,3 +145,120 @@ class TestUsernameChange:
         
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
+
+@allure.feature("Authentication")
+@allure.story("Username Change")
+@pytest.mark.api
+class TestUsernameChangeAccess:
+    
+    @allure.title("Change username fails without authentication token")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.smoke
+    def test_change_username_without_token(self, authenticated_auth_client, valid_username):
+        token = authenticated_auth_client.token
+        authenticated_auth_client.token = None
+        
+        response = authenticated_auth_client.change_username(valid_username)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.token = token
+
+    @allure.title("Change username fails with invalid access token")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("invalid_token", generate_invalid_tokens())
+    def test_change_username_invalid_token(self, authenticated_auth_client, invalid_token, valid_username):
+        token = authenticated_auth_client.token
+        authenticated_auth_client.token = invalid_token
+        response = authenticated_auth_client.change_username(valid_username)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.token = token
+
+    #TODO add expired token generation
+    @allure.title("Change username fails with expired access token")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_change_username_expired_token(self, authenticated_auth_client, valid_username):
+        token = authenticated_auth_client.token
+        expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj0vVzr7B8Y8P9nGJ5pZXkJZ5JZ5JZ5JZ5JZ5JZ5"
+        authenticated_auth_client.token = expired_token
+        
+        response = authenticated_auth_client.change_username(valid_username)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.token = token
+
+    @allure.title("Change username with wrong auth type")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_change_username_with_wrong_auth_type(self, authenticated_auth_client, valid_username):
+        headers = authenticated_auth_client.headers.copy() 
+        headers["Authorization"] = "Basic " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        response = authenticated_auth_client.change_username(valid_username)       
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.headers = headers
+
+    @allure.title("Change username with wrong auth format")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_change_username_with_wrong_auth_format(self, authenticated_auth_client, valid_username):
+        headers = authenticated_auth_client.headers.copy() 
+        headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        response = authenticated_auth_client.change_username(valid_username)    
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.headers = headers
+
+    @allure.title("Change username with too long access token")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_change_username_with_too_long_access_token(self, authenticated_auth_client, valid_username):
+        headers = authenticated_auth_client.headers.copy() 
+        headers["Authorization"] = "Bearer " + "a" * 20480 
+        response = authenticated_auth_client.change_username(valid_username)       
+        assert response.status_code == 431, f"Expected 431, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.headers = headers
+
+    @allure.title("Change username with revoked refresh token")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_change_username_with_revoked_refresh_token(self, authenticated_auth_client, valid_username):
+        authenticated_auth_client.logout()
+        response = authenticated_auth_client.change_username(valid_username)       
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.login()
+
+@allure.feature("Authentication")
+@allure.story("Username Change")
+@pytest.mark.api
+class TestChangeUsernameHeaders:
+
+    @allure.title("Change username without content type")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_change_username_without_content_type(self, authenticated_auth_client, valid_username):
+        headers = authenticated_auth_client.headers.copy() 
+        headers.pop("Content-Type")
+        response = authenticated_auth_client.change_username(valid_username)  
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.headers = headers
+
+    @allure.title("Change username with wrong content type")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("content_type", ["text/plain", "application/xml", "application/json; charset=utf-8"])
+    def test_change_username_with_wrong_content_type(self, authenticated_auth_client, content_type, valid_username):
+        headers = authenticated_auth_client.headers.copy() 
+        headers["Content-Type"] = content_type
+        response = authenticated_auth_client.change_username(valid_username)       
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_auth_client.headers = headers
+
+    @allure.title("Change username check cache")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_change_username_check_cache(self, authenticated_auth_client, valid_username):
+        response = authenticated_auth_client.change_username(valid_username)       
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.headers["Cache-Control"] == "no-cache, no-store, must-revalidate", "Cache-Control header should be set to no-cache, no-store, must-revalidate"
+        assert response.headers["Pragma"] == "no-cache", "Pragma header should be set to no-cache"
