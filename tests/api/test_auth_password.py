@@ -3,6 +3,7 @@ import allure
 from pydantic import ValidationError
 from tests.api.schemas.auth_schemas import ChangePasswordResponse, ErrorResponse
 from tests.api.cases.test_cases import EMPTY_STRING_CASES, NONSTRING_CASES
+import base64
 
 @allure.feature("Authentication")
 @allure.story("Password Change")

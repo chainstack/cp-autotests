@@ -139,11 +139,11 @@ class TestAuditLogStructure:
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
         audit_log = AuditLogResponse(**response.json())
         if len(audit_log.results) > 0:
-                entry = audit_log.results[0]
-                assert entry.id, "Audit entry should have id"
-                assert entry.user_id, "Audit entry should have user_id"
-                assert entry.action, "Audit entry should have action"
-                assert entry.timestamp, "Audit entry should have timestamp"
+            entry = audit_log.results[0]
+            assert entry.id, "Audit entry should have id"
+            assert entry.user_id, "Audit entry should have user_id"
+            assert entry.action, "Audit entry should have action"
+            assert entry.timestamp, "Audit entry should have timestamp"
 
     @allure.title("Audit log updates as expected")
     @allure.severity(allure.severity_level.NORMAL)
@@ -201,7 +201,7 @@ class TestAuditLogAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_audit_log_with_wrong_auth_format(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        authenticated_auth_client.headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
         response = authenticated_auth_client.get_audit_log()       
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -211,7 +211,7 @@ class TestAuditLogAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_audit_log_with_too_long_access_token(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Bearer " + "a" * 20480 
+        authenticated_auth_client.headers["Authorization"] = "Bearer " + "a" * 20480 
         response = authenticated_auth_client.get_audit_log()       
         assert response.status_code == 431, f"Expected 431, got {response.status_code}"
         ErrorResponse(**response.json())

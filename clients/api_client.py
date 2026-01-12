@@ -82,6 +82,20 @@ class APIClient:
         
         return response
 
+    @allure.step("PATCH {endpoint}")
+    def patch(self, endpoint: str, json: Optional[Dict[str, Any]] = None,
+            headers: Optional[Dict[str, str]] = None) -> httpx.Response:
+        url = f"{self.base_url}{endpoint}"
+        request_headers = self._get_headers(headers)
+        
+        with allure.step(f"Request: PATCH {url}"):
+            allure.attach(str(json), "Request Body", allure.attachment_type.JSON)
+            response = self.client.patch(url, json=json, headers=request_headers)
+            allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
+            allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
+        
+        return response
+
     @allure.step("Custom Request {method} {endpoint}")
     def send_custom_request(self, method: str, endpoint: str, 
                            json: Optional[Dict[str, Any]] = None,
@@ -166,7 +180,7 @@ class AuthAPIClient(APIClient):
             refresh_token=refresh_token
         )
 
-    def login(self, username: any = None, password: any = None) -> httpx.Response:        
+    def login(self, username: Optional[str] = None, password: Optional[str] = None) -> httpx.Response:        
         return self.post("/v1/auth/login", json={"username": username, "password": password})
 
     def refresh_token(self, refresh_token: str) -> httpx.Response:
@@ -186,5 +200,5 @@ class AuthAPIClient(APIClient):
         return self.put("/v1/auth/username", json={"new_username": new_username})
 
     def get_audit_log(self, page: Optional[int] = None, page_size: Optional[int] = None) -> httpx.Response:
-        params = {"page": page, "page_size": page_size} if page and page_size else None
+        params = {"page": page, "page_size": page_size}
         return self.get("/v1/auth/audit-log", params=params)
