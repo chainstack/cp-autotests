@@ -4,6 +4,7 @@ import time
 from pydantic import ValidationError
 from tests.api.schemas.auth_schemas import LoginResponse, RefreshTokenResponse, ErrorResponse, UserProfile
 from utils.token_generator import generate_invalid_refresh_tokens, generate_invalid_bearer_tokens
+import base64
 
 @allure.feature("Authentication")
 @allure.story("Token Refresh")
@@ -232,7 +233,7 @@ class TestRefreshTokenHeaders:
     @allure.severity(allure.severity_level.NORMAL)
     def test_refresh_without_content_type(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers.pop("Content-Type")
+        authenticated_auth_client.headers.pop("Content-Type")
         response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)       
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())

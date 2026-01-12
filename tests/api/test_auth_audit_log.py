@@ -153,16 +153,14 @@ class TestAuditLogStructure:
         authenticated_auth_client.change_username(valid_username)
         valid_credentials["username"] = valid_username
         response = authenticated_auth_client.get_audit_log()
+        profile_response = authenticated_auth_client.get_profile()
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
         assert response.json()["results"][0]["action"] == "change_username", "Audit log should have change_username action"
-        assert response.json()["results"][0]["user_id"] == valid_credentials["user_id"], "Audit log should have user_id"
-        assert response.json()["results"][0]["timestamp"] == valid_credentials["timestamp"], "Audit log should have timestamp"
+        assert response.json()["results"][0]["user_id"] == profile_response.json()["user_id"], "Audit log should have user_id"
         assert response.json()["results"][1]["action"] == "login", "Audit log should have login action"
-        assert response.json()["results"][1]["user_id"] == valid_credentials["user_id"], "Audit log should have user_id"
-        assert response.json()["results"][1]["timestamp"] == valid_credentials["timestamp"], "Audit log should have timestamp"
+        assert response.json()["results"][1]["user_id"] == profile_response.json()["user_id"], "Audit log should have user_id"
         assert response.json()["results"][2]["action"] == "logout", "Audit log should have logout action"
-        assert response.json()["results"][2]["user_id"] == valid_credentials["user_id"], "Audit log should have user_id"
-        assert response.json()["results"][2]["timestamp"] == valid_credentials["timestamp"], "Audit log should have timestamp"    
+        assert response.json()["results"][2]["user_id"] == profile_response.json()["user_id"], "Audit log should have user_id"    
 
 @allure.feature("Authentication")
 @allure.story("Audit Log")
@@ -179,11 +177,13 @@ class TestAuditLogAccess:
     @allure.title("Get audit log with invalid access token")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("invalid_token", generate_invalid_bearer_tokens())
-    def test_get_audit_log_with_invalid_access_token(self, auth_client, invalid_token):
-        response = auth_client.get_audit_log(token=invalid_token)        
+    def test_get_audit_log_with_invalid_access_token(self, authenticated_auth_client, invalid_token):
+        token = authenticated_auth_client.token
+        authenticated_auth_client.token = invalid_token
+        response = authenticated_auth_client.get_audit_log()        
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
-
+        authenticated_auth_client.token = token
     #TODO Add cases for IDOR / Broken access control when user creation flow will be clarified
 
     

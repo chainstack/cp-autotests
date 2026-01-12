@@ -156,7 +156,7 @@ class TestProfileAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_profile_with_wrong_auth_type(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Basic " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        authenticated_auth_client.headers["Authorization"] = "Basic " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
         response = authenticated_auth_client.get_profile()       
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -197,7 +197,7 @@ class TestProfileHeaders:
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_profile_without_content_type(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers.pop("Content-Type")
+        authenticated_auth_client.headers.pop("Content-Type")
         response = authenticated_auth_client.get_profile()       
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
