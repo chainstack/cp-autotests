@@ -5,6 +5,7 @@ from tests.api.schemas.auth_schemas import AuditLogResponse, ErrorResponse
 from tests.api.cases.const import MAX_64_BIT_INT
 from tests.api.cases.test_cases import NONINTEGER_CASES
 from utils.token_generator import generate_invalid_bearer_tokens
+import base64
 
 
 @allure.feature("Authentication")
@@ -146,7 +147,7 @@ class TestAuditLogStructure:
 
     @allure.title("Audit log updates as expected")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_audit_log_entry_structure(self, authenticated_auth_client, valid_credentials, valid_username):
+    def test_audit_log_entry_structure_with_user_actions(self, authenticated_auth_client, valid_credentials, valid_username):
         authenticated_auth_client.logout()
         authenticated_auth_client.login(valid_credentials["username"], valid_credentials["password"])
         authenticated_auth_client.change_username(valid_username)

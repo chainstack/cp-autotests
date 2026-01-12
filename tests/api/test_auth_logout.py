@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from tests.api.schemas.auth_schemas import LogoutResponse, ErrorResponse, LoginResponse, UserProfile
 from tests.api.cases.test_cases import EMPTY_STRING_CASES
 from utils.token_generator import generate_invalid_refresh_tokens, generate_expired_token
+import base64
 
 
 @allure.feature("Authentication")
@@ -132,7 +133,7 @@ class TestLogoutAcess:
     @allure.severity(allure.severity_level.CRITICAL)
     def test_logout_with_too_long_access_token(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Bearer " + "a" * 20480 
+        authenticated_auth_client.headers["Authorization"] = "Bearer " + "a" * 20480 
         response = authenticated_auth_client.logout()       
         assert response.status_code == 431, f"Expected 431, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -208,7 +209,7 @@ class TestLogoutQueryManipulation:
     @allure.severity(allure.severity_level.NORMAL)
     def test_logout_without_content_type(self, auth_client):
         headers = auth_client.headers.copy() 
-        headers.pop("Content-Type")
+        auth_client.headers.pop("Content-Type")
         response = auth_client.logout()       
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -219,7 +220,7 @@ class TestLogoutQueryManipulation:
     @pytest.mark.parametrize("content_type", ["text/plain", "application/xml", "application/json; charset=utf-8"])
     def test_logout_with_wrong_content_type(self, auth_client, content_type):
         headers = auth_client.headers.copy() 
-        headers["Content-Type"] = content_type
+        auth_client.headers["Content-Type"] = content_type
         response = auth_client.logout()       
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())

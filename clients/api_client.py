@@ -12,6 +12,7 @@ class APIClient:
         self.refresh_token = refresh_token
         self.api_key = api_key
         self.client = httpx.Client(timeout=30.0)
+        self.headers = self._get_headers()
 
     def _get_headers(self, additional_headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         headers = {"Content-Type": "application/json"}

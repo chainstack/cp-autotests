@@ -3,6 +3,8 @@ import allure
 from pydantic import ValidationError
 from tests.api.schemas.auth_schemas import UserProfile, ErrorResponse
 from tests.api.cases.test_cases import EMPTY_STRING_CASES, NONSTRING_CASES
+import base64
+from utils.token_generator import generate_invalid_bearer_tokens
 
 
 @allure.feature("Authentication")
@@ -166,7 +168,7 @@ class TestUsernameChangeAccess:
 
     @allure.title("Change username fails with invalid access token")
     @allure.severity(allure.severity_level.NORMAL)
-    @pytest.mark.parametrize("invalid_token", generate_invalid_tokens())
+    @pytest.mark.parametrize("invalid_token", generate_invalid_bearer_tokens())
     def test_change_username_invalid_token(self, authenticated_auth_client, invalid_token, valid_username):
         token = authenticated_auth_client.token
         authenticated_auth_client.token = invalid_token
@@ -204,7 +206,7 @@ class TestUsernameChangeAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_change_username_with_wrong_auth_format(self, authenticated_auth_client, valid_username):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        authenticated_auth_client.headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
         response = authenticated_auth_client.change_username(valid_username)    
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -214,7 +216,7 @@ class TestUsernameChangeAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_change_username_with_too_long_access_token(self, authenticated_auth_client, valid_username):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Bearer " + "a" * 20480 
+        authenticated_auth_client.headers["Authorization"] = "Bearer " + "a" * 20480 
         response = authenticated_auth_client.change_username(valid_username)       
         assert response.status_code == 431, f"Expected 431, got {response.status_code}"
         ErrorResponse(**response.json())

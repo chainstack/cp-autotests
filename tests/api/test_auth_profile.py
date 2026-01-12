@@ -3,6 +3,7 @@ import allure
 from pydantic import ValidationError
 from tests.api.schemas.auth_schemas import UserProfile, ErrorResponse
 from utils.token_generator import generate_invalid_tokens
+import base64
 
 
 @allure.feature("Authentication")
@@ -165,7 +166,7 @@ class TestProfileAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_profile_with_wrong_auth_format(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        authenticated_auth_client.headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
         response = authenticated_auth_client.get_profile()       
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -175,7 +176,7 @@ class TestProfileAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_profile_with_too_long_access_token(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Bearer " + "a" * 20480 
+        authenticated_auth_client.headers["Authorization"] = "Bearer " + "a" * 20480 
         response = authenticated_auth_client.get_profile()       
         assert response.status_code == 431, f"Expected 431, got {response.status_code}"
         ErrorResponse(**response.json())

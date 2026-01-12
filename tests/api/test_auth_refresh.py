@@ -3,7 +3,7 @@ import allure
 import time
 from pydantic import ValidationError
 from tests.api.schemas.auth_schemas import LoginResponse, RefreshTokenResponse, ErrorResponse, UserProfile
-from utils.token_generator import generate_invalid_refresh_tokens
+from utils.token_generator import generate_invalid_refresh_tokens, generate_invalid_bearer_tokens
 
 @allure.feature("Authentication")
 @allure.story("Token Refresh")
@@ -160,7 +160,7 @@ class TestRefreshTokenAccess:
 
     @allure.title("Refresh fails with invalid access token")
     @allure.severity(allure.severity_level.NORMAL)
-    @pytest.mark.parametrize("invalid_token", generate_invalid_tokens())
+    @pytest.mark.parametrize("invalid_token", generate_invalid_bearer_tokens())
     def test_refresh_invalid_token(self, authenticated_auth_client, invalid_token):
         token = authenticated_auth_client.token
         authenticated_auth_client.token = invalid_token
@@ -188,7 +188,7 @@ class TestRefreshTokenAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_refresh_with_wrong_auth_type(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Basic " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        authenticated_auth_client.headers["Authorization"] = "Basic " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
         response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)       
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -208,7 +208,7 @@ class TestRefreshTokenAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_refresh_with_too_long_access_token(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Bearer " + "a" * 20480 
+        authenticated_auth_client.headers["Authorization"] = "Bearer " + "a" * 20480 
         response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)       
         assert response.status_code == 431, f"Expected 431, got {response.status_code}"
         ErrorResponse(**response.json())

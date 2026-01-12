@@ -229,7 +229,7 @@ class TestPasswordChangeQueryManipulation:
     def test_change_password_extra_fields(self, authenticated_auth_client, valid_credentials, valid_password, extra_field, extra_value):
         response = authenticated_auth_client.send_custom_request(
             method="PUT",
-            url="/v1/auth/password",
+            endpoint="/v1/auth/password",
             json={
                 "old_password": valid_credentials["password"],
                 "new_password": valid_password,

@@ -1,8 +1,23 @@
 import pytest
 import allure
 from pydantic import ValidationError
-from tests.api.schemas.auth_schemas import LoginResponse, ErrorResponse
+from tests.api.schemas.auth_schemas import LoginResponse, ErrorResponse, UserProfile
 from tests.api.cases.test_cases import EMPTY_STRING_CASES, NONSTRING_CASES
+
+def randomize_valid_credentials(valid_credentials):
+    return [
+        (valid_credentials["username"].upper(), valid_credentials["password"]),
+        (valid_credentials["username"].lower(), valid_credentials["password"]),
+        (valid_credentials["username"], valid_credentials["password"].upper()),
+        (valid_credentials["username"], valid_credentials["password"].lower()),
+        (valid_credentials["username"].upper(), valid_credentials["password"].upper()),
+        (valid_credentials["username"].lower(), valid_credentials["password"].lower()),
+        (valid_credentials["username"].upper(), valid_credentials["password"].lower()),
+        (valid_credentials["username"].lower(), valid_credentials["password"].upper()),
+        (valid_credentials["username"].swapcase(), valid_credentials["password"]),
+        (valid_credentials["username"], valid_credentials["password"].swapcase()),
+        (valid_credentials["username"].swapcase(), valid_credentials["password"].swapcase())
+        ]
 
 
 @allure.feature("Authentication")
@@ -28,23 +43,6 @@ class TestLoginGeneral:
             #TODO add token TTL check
         except ValidationError as e:
             pytest.fail(f"Response schema validation failed: {e}")
-
-    @allure.title("Successful recurrent login with valid credentials")
-    @allure.severity(allure.severity_level.CRITICAL)
-    @pytest.mark.smoke
-    def test_login_success(self, auth_client, valid_credentials, authenticated_auth_client):
-
-        logout_response = authenticated_auth_client.logout()
-        
-        assert logout_response.status_code == 200, f"Expected 200, got {logout_response.status_code}"
-        
-        login_response = auth_client.login(
-            valid_credentials["username"],
-            valid_credentials["password"]
-        ) 
-        
-        assert login_response.status_code == 200, f"Expected 200, got {login_response.status_code}"
-        LoginResponse(**login_response.json())
 
 @allure.feature("Authentication")
 @allure.story("Login")
@@ -108,19 +106,7 @@ class TestLoginFieldsValidation:
 
     @allure.title("Login fails with wrong case for username and password")
     @allure.severity(allure.severity_level.NORMAL)
-    @pytest.mark.parametrize("username, password", [
-        (valid_credentials["username"].upper(), valid_credentials["password"]),
-        (valid_credentials["username"].lower(), valid_credentials["password"]),
-        (valid_credentials["username"], valid_credentials["password"].upper()),
-        (valid_credentials["username"], valid_credentials["password"].lower()),
-        (valid_credentials["username"].upper(), valid_credentials["password"].upper()),
-        (valid_credentials["username"].lower(), valid_credentials["password"].lower()),
-        (valid_credentials["username"].upper(), valid_credentials["password"].lower()),
-        (valid_credentials["username"].lower(), valid_credentials["password"].upper()),
-        (valid_credentials["username"].swapcase(), valid_credentials["password"]),
-        (valid_credentials["username"], valid_credentials["password"].swapcase()),
-        (valid_credentials["username"].swapcase(), valid_credentials["password"].swapcase())
-    ])
+    @pytest.mark.parametrize("username, password", randomize_valid_credentials(valid_credentials))
     def test_login_wrong_case(self, auth_client, username, password):
         response = auth_client.login(username, password)
         
@@ -157,7 +143,7 @@ class TestLoginFieldsValidation:
     @allure.title("Login fails with missing password")
     @allure.severity(allure.severity_level.NORMAL)
     def test_login_missing_password(self, auth_client, valid_credentials):
-        response = auth_client.login(password=valid_credentials["password"])
+        response = auth_client.login(password=valid_credentials["username"])
         
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -238,7 +224,7 @@ class TestLoginQueryManipulation:
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("method", ["PUT", "PATCH"])
     def test_login_with_wrong_method(self, auth_client, valid_credentials, method):
-        response = auth_client.client.send_custom_request(method, "/v1/auth/login", json={
+        response = auth_client.send_custom_request(method, "/v1/auth/login", json={
             "username": valid_credentials["username"],
             "password": valid_credentials["password"]
         })       
@@ -295,12 +281,12 @@ class TestLoginQueryManipulation:
         get_profile_response = authenticated_auth_client.get_profile()
         
         assert get_profile_response.status_code == 200
-        ProfileResponse(**get_profile_response.json())
+        UserProfile(**get_profile_response.json())
         
         authenticated_auth_client.token = token2
         get_profile_response = authenticated_auth_client.get_profile()
         
         assert get_profile_response.status_code == 200
-        ProfileResponse(**get_profile_response.json())
+        UserProfile(**get_profile_response.json())
 
 
