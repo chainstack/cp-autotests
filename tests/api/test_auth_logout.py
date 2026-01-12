@@ -70,7 +70,7 @@ class TestLogoutRefreshToken:
         assert logout_response.status_code == 200, f"Expected 200, got {logout_response.status_code}"
         LogoutResponse(**logout_response.json())
         
-        refresh_response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)
+        refresh_response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)
         assert refresh_response.status_code == 401, f"Expected 401, got {refresh_response.status_code}"
         ErrorResponse(**refresh_response.json())
 
