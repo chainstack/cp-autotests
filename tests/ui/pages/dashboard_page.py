@@ -2,6 +2,7 @@ import allure
 from playwright.sync_api import Page
 from tests.ui.pages.base_page import BasePage
 from tests.ui.locators.dashboard_page_locators import DashboardPageLocators
+from tests.ui.constants.ui_constants import TIMEOUT_MAX
 
 
 class DashboardPage(BasePage):
@@ -57,7 +58,7 @@ class DashboardPage(BasePage):
     @allure.step("Verify form validation error")
     def verify_form_error(self, expected_error: str = None):
         """Verify form validation error is displayed."""
-        self.wait_for_element(self.locators.error_message, timeout=3000)
+        self.wait_for_element(self.locators.error_message, timeout=TIMEOUT_MAX)
         error_text = self.get_text(self.locators.error_message)
         allure.attach(error_text, "Form Error", allure.attachment_type.TEXT)
         

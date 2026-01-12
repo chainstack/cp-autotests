@@ -3,6 +3,7 @@ from playwright.sync_api import Page
 from tests.ui.pages.base_page import BasePage
 from tests.ui.locators.login_page_locators import LoginPageLocators
 from tests.ui.pages.dashboard_page import DashboardPage
+from tests.ui.constants.ui_constants import TIMEOUT_MAX
 
 class LoginPage(BasePage):
     """Login page object."""
@@ -78,7 +79,7 @@ class LoginPage(BasePage):
     def verify_login_error(self, expected_error: str = None):
         # Wait for error message or check if login button is still disabled
         try:
-            self.wait_for_element(self.error_message, timeout=3000)
+            self.wait_for_element(self.error_message, timeout=TIMEOUT_MAX)
             error_text = self.get_text(self.error_message)
             allure.attach(error_text, "Login Error", allure.attachment_type.TEXT)
             

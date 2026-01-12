@@ -56,8 +56,8 @@ class SettingsPageLocators:
     # Input by placeholder
     @staticmethod
     def input_by_placeholder(placeholder: str) -> str:
-        """Get input field by placeholder text."""
-        return f".form-field[placeholder='{placeholder}'] input"
+        """Get input field by placeholder text on parent form-field."""
+        return f".form-field[placeholder='{placeholder}'] .form-input"
     
     @staticmethod
     def input_by_label(label: str) -> str:

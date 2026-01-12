@@ -2,6 +2,7 @@ import allure
 from playwright.sync_api import Page
 from tests.ui.pages.base_page import BasePage
 from tests.ui.locators.settings_locators import SettingsPageLocators, SettingsFormLocators
+from tests.ui.constants.ui_constants import TIMEOUT_MAX
 
 
 class SettingsPage(BasePage):
@@ -87,7 +88,7 @@ class SettingsPage(BasePage):
     @allure.step("Verify form error: {expected_error}")
     def verify_form_error(self, expected_error: str = None):
         """Verify form validation error."""
-        self.wait_for_element(self.form_locators.FORM_ERROR, timeout=3000)
+        self.wait_for_element(self.form_locators.FORM_ERROR, timeout=TIMEOUT_MAX)
         error_text = self.get_text(self.form_locators.FORM_ERROR)
         allure.attach(error_text, "Form Error", allure.attachment_type.TEXT)
         
@@ -97,7 +98,7 @@ class SettingsPage(BasePage):
     @allure.step("Verify form success")
     def verify_form_success(self):
         """Verify form submission success."""
-        self.wait_for_element(self.form_locators.FORM_SUCCESS, timeout=5000)
+        self.wait_for_element(self.form_locators.FORM_SUCCESS, timeout=TIMEOUT_MAX)
         success_text = self.get_text(self.form_locators.FORM_SUCCESS)
         allure.attach(success_text, "Form Success", allure.attachment_type.TEXT)
 

@@ -146,6 +146,8 @@ class MonitoringPage(BasePage):
             self.click(self.metrics.FILTER_BY_TYPE)
         elif filter_type == "status":
             self.click(self.metrics.FILTER_BY_STATUS)
+        else:
+            raise ValueError(f"Invalid filter type: {filter_type}")    
         
         # Select filter value
         filter_option = f"[role='option']:has-text('{filter_value}')"
