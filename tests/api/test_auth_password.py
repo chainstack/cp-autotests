@@ -198,7 +198,7 @@ class TestPasswordChangeAccess:
     @allure.severity(allure.severity_level.CRITICAL)
     def test_change_password_with_too_long_access_token(self, authenticated_auth_client, valid_credentials, faker):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Bearer " + "a" * 20480 
+        authenticated_auth_client.headers["Authorization"] = "Bearer " + "a" * 20480 
         response = authenticated_auth_client.change_password(
             old_password=valid_credentials["password"],
             new_password=faker.password()

@@ -191,7 +191,7 @@ class TestAuditLogAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_audit_log_with_wrong_auth_type(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Basic " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        authenticated_auth_client.headers["Authorization"] = "Basic " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
         response = authenticated_auth_client.get_audit_log()       
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())

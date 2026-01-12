@@ -108,7 +108,7 @@ class TestProfileGeneral:
         profile = UserProfile(**response.json())
         valid_roles = ["owner", "admin", "editor", "viewer"]
         
-        assert profile.tenant_role, "Tenant role should not be empty"
+        assert profile.tenant_role in valid_roles, "Tenant role should be valid"
 
 @allure.feature("Authentication")
 @allure.story("User Profile")

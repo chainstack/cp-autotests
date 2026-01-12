@@ -28,14 +28,14 @@ def authenticated_nodes_client(config: Settings):
     client.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def auth_client(config: Settings):
     client = AuthAPIClient(config)
     yield client
     client.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def authenticated_auth_client(config: Settings):
     client = AuthAPIClient(config)
     if config.user_log and config.user_pass:

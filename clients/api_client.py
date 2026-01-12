@@ -99,17 +99,18 @@ class APIClient:
     @allure.step("Custom Request {method} {endpoint}")
     def send_custom_request(self, method: str, endpoint: str, 
                            json: Optional[Dict[str, Any]] = None,
-                           params: Optional[Dict[str, Any]] = None) -> httpx.Response:
+                           params: Optional[Dict[str, Any]] = None,
+                           headers: Optional[Dict[str, str]] = None) -> httpx.Response:
         if method.upper() == "GET":
-            return self.get(endpoint, params=params)
+            return self.get(endpoint, params=params, headers=headers)
         elif method.upper() == "POST":
-            return self.post(endpoint, json=json)
+            return self.post(endpoint, json=json, headers=headers)
         elif method.upper() == "PUT":
-            return self.put(endpoint, json=json)
+            return self.put(endpoint, json=json, headers=headers)
         elif method.upper() == "PATCH":
-            return self.patch(endpoint, json=json)
+            return self.patch(endpoint, json=json, headers=headers)
         elif method.upper() == "DELETE":
-            return self.delete(endpoint)
+            return self.delete(endpoint, headers=headers)
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
 
@@ -183,7 +184,7 @@ class AuthAPIClient(APIClient):
     def login(self, username: Optional[str] = None, password: Optional[str] = None) -> httpx.Response:        
         return self.post("/v1/auth/login", json={"username": username, "password": password})
 
-    def refresh_token(self, refresh_token: str) -> httpx.Response:
+    def post_refresh(self, refresh_token: str) -> httpx.Response:
         return self.post("/v1/auth/refresh", json={"refresh_token": refresh_token})
 
     def logout(self, refresh_token: Optional[str] = None) -> httpx.Response:

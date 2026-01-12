@@ -23,7 +23,7 @@ class TestTokenRefreshGeneral:
         
         login_data = LoginResponse(**login_response.json())
         
-        refresh_response = auth_client.refresh_token(login_data.refresh_token)
+        refresh_response = auth_client.post_refresh(login_data.refresh_token)
         
         assert refresh_response.status_code == 200, f"Expected 200, got {refresh_response.status_code}"
         
@@ -43,7 +43,7 @@ class TestRefreshTokenManipulation:
     @pytest.mark.smoke
     @pytest.mark.parametrize("invalid_token", generate_invalid_refresh_tokens())
     def test_refresh_token_invalid(self, auth_client, invalid_token):
-        response = auth_client.refresh_token(invalid_token)
+        response = auth_client.post_refresh(invalid_token)
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -59,7 +59,7 @@ class TestRefreshTokenManipulation:
     @allure.title("Refresh token fails with empty refresh token")
     @allure.severity(allure.severity_level.NORMAL)
     def test_refresh_token_empty(self, auth_client):
-        response = auth_client.refresh_token("")
+        response = auth_client.post_refresh("")
         
         assert response.status_code in [400, 401], f"Expected 400 or 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -71,7 +71,7 @@ class TestRefreshTokenManipulation:
     def test_refresh_token_expired(self, auth_client):
         expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj0vVzr7B8Y8P9nGJ5pZXkJZ5JZ5JZ5JZ5JZ5JZ5"
         
-        response = auth_client.refresh_token(expired_token)
+        response = auth_client.post_refresh(expired_token)
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -87,9 +87,9 @@ class TestRefreshTokenManipulation:
         
         login_data = LoginResponse(**login_response.json())
         
-        refresh_response1 = auth_client.refresh_token(login_data.refresh_token)
+        refresh_response1 = auth_client.post_refresh(login_data.refresh_token)
         time.sleep(1)
-        refresh_response2 = auth_client.refresh_token(login_data.refresh_token)
+        refresh_response2 = auth_client.post_refresh(login_data.refresh_token)
         
         assert refresh_response1.status_code == 200
         assert refresh_response2.status_code == 200
@@ -110,7 +110,7 @@ class TestRefreshTokenManipulation:
         
         login_data = LoginResponse(**login_response.json())
         
-        refresh_response = auth_client.refresh_token(login_data.refresh_token)
+        refresh_response = auth_client.post_refresh(login_data.refresh_token)
         assert refresh_response.status_code == 200
         
         refresh_data = RefreshTokenResponse(**refresh_response.json())
@@ -132,7 +132,7 @@ class TestRefreshTokenManipulation:
         
         login_data = LoginResponse(**login_response.json())
         
-        refresh_response = auth_client.refresh_token(login_data.refresh_token)
+        refresh_response = auth_client.post_refresh(login_data.refresh_token)
         assert refresh_response.status_code == 200
         
         auth_client.token = login_data.access_token
@@ -153,7 +153,7 @@ class TestRefreshTokenAccess:
         token = authenticated_auth_client.token
         authenticated_auth_client.token = None
         
-        refresh_response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)
+        refresh_response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)
         
         assert refresh_response.status_code == 401, f"Expected 401, got {refresh_response.status_code}"
         ErrorResponse(**refresh_response.json())
@@ -165,7 +165,7 @@ class TestRefreshTokenAccess:
     def test_refresh_invalid_token(self, authenticated_auth_client, invalid_token):
         token = authenticated_auth_client.token
         authenticated_auth_client.token = invalid_token
-        response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)
+        response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -179,7 +179,7 @@ class TestRefreshTokenAccess:
         expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj0vVzr7B8Y8P9nGJ5pZXkJZ5JZ5JZ5JZ5JZ5JZ5"
         authenticated_auth_client.token = expired_token
         
-        response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)
+        response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
@@ -190,7 +190,7 @@ class TestRefreshTokenAccess:
     def test_refresh_with_wrong_auth_type(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
         authenticated_auth_client.headers["Authorization"] = "Basic " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
-        response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)       
+        response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)       
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
         authenticated_auth_client.headers = headers
@@ -200,7 +200,7 @@ class TestRefreshTokenAccess:
     def test_refresh_with_wrong_auth_format(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
         headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
-        response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)    
+        response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)    
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
         authenticated_auth_client.headers = headers
@@ -210,7 +210,7 @@ class TestRefreshTokenAccess:
     def test_refresh_with_too_long_access_token(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
         authenticated_auth_client.headers["Authorization"] = "Bearer " + "a" * 20480 
-        response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)       
+        response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)       
         assert response.status_code == 431, f"Expected 431, got {response.status_code}"
         ErrorResponse(**response.json())
         authenticated_auth_client.headers = headers
@@ -219,7 +219,7 @@ class TestRefreshTokenAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_refresh_with_revoked_refresh_token(self, authenticated_auth_client):
         authenticated_auth_client.logout()
-        response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)       
+        response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)       
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
         authenticated_auth_client.login()
@@ -234,7 +234,7 @@ class TestRefreshTokenHeaders:
     def test_refresh_without_content_type(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
         authenticated_auth_client.headers.pop("Content-Type")
-        response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)       
+        response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)       
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
         authenticated_auth_client.headers = headers
@@ -245,7 +245,7 @@ class TestRefreshTokenHeaders:
     def test_refresh_with_wrong_content_type(self, authenticated_auth_client, content_type):
         headers = authenticated_auth_client.headers.copy() 
         headers["Content-Type"] = content_type
-        response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)       
+        response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)       
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
         authenticated_auth_client.headers = headers
@@ -253,7 +253,7 @@ class TestRefreshTokenHeaders:
     @allure.title("Refresh check cache")
     @allure.severity(allure.severity_level.NORMAL)
     def test_refresh_check_cache(self, authenticated_auth_client):
-        response = authenticated_auth_client.refresh_token(authenticated_auth_client.refresh_token)       
+        response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)       
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
         assert response.headers["Cache-Control"] == "no-cache, no-store, must-revalidate", "Cache-Control header should be set to no-cache, no-store, must-revalidate"
         assert response.headers["Pragma"] == "no-cache", "Pragma header should be set to no-cache"
