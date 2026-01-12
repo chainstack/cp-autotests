@@ -184,12 +184,12 @@ class TestProfileAccess:
 
     @allure.title("Get profile with revoked access token")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_get_profile_with_revoked_access_token(self, authenticated_auth_client):
+    def test_get_profile_with_revoked_access_token(self, authenticated_auth_client, valid_credentials):
         authenticated_auth_client.logout()
         response = authenticated_auth_client.get_profile()       
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
-        authenticated_auth_client.login()
+        authenticated_auth_client.login(valid_credentials["username"], valid_credentials["password"])
 
 class TestProfileHeaders:
 

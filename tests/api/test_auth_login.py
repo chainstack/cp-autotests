@@ -19,6 +19,19 @@ def randomize_valid_credentials(valid_credentials):
         (valid_credentials["username"].swapcase(), valid_credentials["password"].swapcase())
         ]
 
+def stripcase_valid_credentials(valid_credentials):
+    return [
+        (f" {valid_credentials["username"]}", valid_credentials["password"]),
+        (f"{valid_credentials["username"]} ", valid_credentials["password"]),
+        (f" {valid_credentials["username"]} ", valid_credentials["password"]),
+        (valid_credentials["username"], f" {valid_credentials["password"]}"),
+        (valid_credentials["username"], f"{valid_credentials["password"]} "),
+        (valid_credentials["username"], f" {valid_credentials["password"]} "),
+        (f" {valid_credentials["username"]}", f" {valid_credentials["password"]}"),
+        (f"{valid_credentials["username"]} ", f"{valid_credentials["password"]} "),
+        (f" {valid_credentials["username"]} ", f" {valid_credentials["password"]} "),
+    ]
+
 
 @allure.feature("Authentication")
 @allure.story("Login")
@@ -87,17 +100,7 @@ class TestLoginFieldsValidation:
 
     @allure.title("Login fails with stripcases for username and password")
     @allure.severity(allure.severity_level.NORMAL)
-    @pytest.mark.parametrize("username, password", [
-        (f" {valid_credentials["username"]}", valid_credentials["password"]),
-        (f"{valid_credentials["username"]} ", valid_credentials["password"]),
-        (f" {valid_credentials["username"]} ", valid_credentials["password"]),
-        (valid_credentials["username"], f" {valid_credentials["password"]}"),
-        (valid_credentials["username"], f"{valid_credentials["password"]} "),
-        (valid_credentials["username"], f" {valid_credentials["password"]} "),
-        (f" {valid_credentials["username"]}", f" {valid_credentials["password"]}"),
-        (f"{valid_credentials["username"]} ", f"{valid_credentials["password"]} "),
-        (f" {valid_credentials["username"]} ", f" {valid_credentials["password"]} "),
-        ])
+    @pytest.mark.parametrize("username, password", stripcase_valid_credentials(valid_credentials))
     def test_login_stripcases(self, auth_client, username, password):
         response = auth_client.login(username, password)
         

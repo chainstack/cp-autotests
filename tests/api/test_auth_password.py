@@ -40,7 +40,7 @@ class TestPasswordChangeFieldsValidation:
             new_password=valid_password
         )
         
-        assert response.status_code== 400, f"Expected 400, got {response.status_code}"
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
 
     @allure.title("Change password with missing new password")

@@ -199,7 +199,7 @@ class TestRefreshTokenAccess:
     @allure.severity(allure.severity_level.NORMAL)
     def test_refresh_with_wrong_auth_format(self, authenticated_auth_client):
         headers = authenticated_auth_client.headers.copy() 
-        headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
+        authenticated_auth_client.headers["Authorization"] = "Bearer " + base64.b64encode(authenticated_auth_client.token.encode()).decode() 
         response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)    
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())

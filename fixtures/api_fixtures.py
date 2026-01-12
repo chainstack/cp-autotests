@@ -45,6 +45,8 @@ def authenticated_auth_client(config: Settings):
             refresh_token = response.json().get("refresh_token")
             client.token = token
             client.refresh_token = refresh_token
+        else:
+            raise Exception("Login failed")
     yield client
     client.close()
 
