@@ -1,0 +1,1196 @@
+openapi: 3.0.3
+info:
+  title: CP Deployments API
+  description: API for managing deployments and presets in the Chainstack Control Panel
+  version: 1.0.0
+  contact:
+    name: Chainstack Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  # Preset endpoints
+  /v1/presets/types:
+    get:
+      tags:
+        - Presets
+      summary: List all preset types
+      operationId: listPresetTypes
+      responses:
+        '200':
+          description: Successfully retrieved preset types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PresetType'
+        '503':
+          description: Preset registry unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/presets/types/{id}:
+    get:
+      tags:
+        - Presets
+      summary: Get a specific preset type by ID
+      operationId: getPresetType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Preset type ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved preset type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresetType'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/presets/instances:
+    get:
+      tags:
+        - Presets
+      summary: List all preset instances
+      operationId: listPresetInstances
+      responses:
+        '200':
+          description: Successfully retrieved preset instances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PresetInstance'
+        '503':
+          description: Preset registry unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/presets/instances/{id}:
+    get:
+      tags:
+        - Presets
+      summary: Get a specific preset instance by ID
+      operationId: getPresetInstance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Preset instance ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved preset instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresetInstance'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # UI Deployment endpoints
+  /v1/ui/deployments:
+    post:
+      tags:
+        - UI Deployments
+      summary: Create a new deployment
+      operationId: createDeployment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeploymentRequest'
+      responses:
+        '201':
+          description: Deployment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDeploymentResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags:
+        - UI Deployments
+      summary: List all deployments
+      operationId: listDeployments
+      responses:
+        '200':
+          description: Successfully retrieved deployments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Deployment'
+                  total:
+                    type: integer
+                    description: Total number of deployments
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/ui/deployments/{id}:
+    get:
+      tags:
+        - UI Deployments
+      summary: Get a specific deployment
+      operationId: getDeployment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Deployment ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deployment'
+        '400':
+          description: Invalid deployment ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Deployment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/ui/deployments/{id}/revisions:
+    get:
+      tags:
+        - UI Deployments
+      summary: List all revisions for a deployment
+      operationId: listRevisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Deployment ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved revisions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeploymentRevision'
+                  total:
+                    type: integer
+                    description: Total number of revisions
+        '400':
+          description: Invalid deployment ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Deployment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - UI Deployments
+      summary: Create a new revision for a deployment
+      operationId: createRevision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Deployment ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRevisionRequest'
+      responses:
+        '201':
+          description: Revision created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateRevisionResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/ui/deployments/{id}/revisions/{revision_id}:
+    get:
+      tags:
+        - UI Deployments
+      summary: Get a specific revision
+      operationId: getRevision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Deployment ID
+          schema:
+            type: string
+            format: uuid
+        - name: revision_id
+          in: path
+          required: true
+          description: Revision ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved revision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentRevision'
+        '400':
+          description: Invalid deployment ID or revision ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Deployment or revision not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/ui/deployments/{id}/schedule-delete:
+    post:
+      tags:
+        - UI Deployments
+      summary: Schedule a deployment for deletion
+      operationId: scheduleDeleteDeployment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Deployment ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deletion scheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleDeleteResponse'
+        '400':
+          description: Invalid deployment ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Auth endpoints
+  /v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate user and obtain tokens
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successfully authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token using refresh token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user and revoke tokens
+      operationId: logout
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/auth/profile:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user profile
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successfully retrieved profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/auth/password:
+    put:
+      tags:
+        - Authentication
+      summary: Change user password
+      description: >
+        Change password for the current user.
+        NOTE: This endpoint is not properly implemented in cp-auth service.
+        The current ChangePassword method is admin-only and doesn't verify old password.
+        Currently returns 501 Not Implemented.
+      operationId: changePassword
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangePasswordResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Not implemented - requires cp-auth service update with user-facing password change
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/auth/username:
+    put:
+      tags:
+        - Authentication
+      summary: Change username
+      description: >
+        Change the username for the current user.
+        NOTE: This endpoint requires implementation in cp-auth service.
+        Currently returns 501 Not Implemented.
+      operationId: changeUsername
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeUsernameRequest'
+      responses:
+        '200':
+          description: Username changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Not implemented - requires cp-auth service update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/auth/audit-log:
+    get:
+      tags:
+        - Authentication
+      summary: Get user audit log
+      description: >
+        Retrieve audit log entries for the current user.
+        NOTE: This endpoint requires implementation in cp-auth service.
+        Currently returns 501 Not Implemented.
+      operationId: getAuditLog
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Successfully retrieved audit log
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Not implemented - requires cp-auth service update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    # Error response
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error
+
+    # Preset schemas
+    PresetType:
+      type: object
+      description: CTI Preset Type from the registry
+      additionalProperties: true
+      # Note: These are dynamic objects from CTI registry (metadata.EntityType)
+
+    PresetInstance:
+      type: object
+      description: CTI Preset Instance from the registry
+      additionalProperties: true
+      # Note: These are dynamic objects from CTI registry (metadata.EntityInstance)
+
+    # Deployment schemas
+    DeploymentState:
+      type: string
+      enum:
+        - pending
+        - running
+        - failed
+        - deleting
+        - deleted
+
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        state:
+          $ref: '#/components/schemas/DeploymentState'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        cti:
+          type: object
+          description: >
+            CTI object - may contain various fields depending on the preset type.
+            This is a dynamic object from CTI registry.
+          additionalProperties: true
+
+
+      required:
+        - id
+        - state
+        - created_at
+        - updated_at
+
+    RevisionStatus:
+      type: string
+      enum:
+        - pending
+        - applied
+        - failed
+
+    Metadata:
+      type: object
+      description: Client's metadata information
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the Metadata entry
+        name:
+          type: string
+          description: CTI identifier (e.g., cti.c.cp.ethereum_mainnet_reth_prysm.v1.0)
+          example: "cti.c.cp.ethereum_mainnet_reth_prysm.v1.0"
+        data:
+          type: object
+          description: CTI metadata.EntityType as JSON object containing schema, display_name, description, etc.
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - data
+        - created_at
+        - updated_at
+
+    DeploymentRevision:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        deployment_id:
+          type: string
+          format: uuid
+        preset_type:
+          type: string
+          description: CTI ID for the preset type
+        preset_instance_values:
+          type: object
+          additionalProperties: true
+        version:
+          type: integer
+        status:
+          $ref: '#/components/schemas/RevisionStatus'
+        error_message:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        applied_at:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: array
+          items:
+            $ref: '#/components/schemas/Metadata'
+          description: List of provisioned clients (or another artifacts) for this revision
+      required:
+        - id
+        - deployment_id
+        - preset_type
+        - preset_instance_values
+        - version
+        - status
+        - created_at
+        - updated_at
+
+    # Request/Response schemas
+    CreateDeploymentRequest:
+      type: object
+      properties:
+        preset_instance_id:
+          type: string
+          description: CTI preset instance ID (e.g., cti.c.cp.ethereum_mainnet_reth_prysm.v1.0)
+        preset_override_values:
+          type: object
+          additionalProperties: true
+          description: Values to override from the preset instance (deep merge strategy - overrides apply to leaf values only)
+      required:
+        - preset_instance_id
+
+    CreateDeploymentResponse:
+      type: object
+      properties:
+        deployment_id:
+          type: string
+          format: uuid
+        initial_revision_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+      required:
+        - deployment_id
+        - initial_revision_id
+        - state
+
+    CreateRevisionRequest:
+      type: object
+      properties:
+        preset_instance_id:
+          type: string
+          description: CTI preset instance ID (e.g., cti.c.cp.ethereum_mainnet_reth_prysm.v1.0)
+        preset_override_values:
+          type: object
+          additionalProperties: true
+          description: Values to override from the preset instance (deep merge strategy - overrides apply to leaf values only)
+      required:
+        - preset_instance_id
+
+    CreateRevisionResponse:
+      type: object
+      properties:
+        revision_id:
+          type: string
+          format: uuid
+        deployment_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        state:
+          type: string
+      required:
+        - revision_id
+        - deployment_id
+        - version
+        - state
+
+    ScheduleDeleteResponse:
+      type: object
+      properties:
+        deployment_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+      required:
+        - deployment_id
+        - state
+
+    # Auth schemas
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Username or email
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          description: User password
+      required:
+        - username
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: Refresh token for obtaining new access tokens
+        expires_in:
+          type: integer
+          format: int64
+          description: Access token expiration time in seconds
+        user:
+          $ref: '#/components/schemas/UserProfile'
+      required:
+        - access_token
+        - refresh_token
+        - expires_in
+        - user
+
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token obtained from login
+      required:
+        - refresh_token
+
+    RefreshTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: New JWT access token
+        expires_in:
+          type: integer
+          format: int64
+          description: Access token expiration time in seconds
+      required:
+        - access_token
+        - expires_in
+
+    LogoutRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+          description: Optional refresh token to revoke. If not provided, extracted from Authorization header.
+          nullable: true
+
+    LogoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Successfully logged out"
+      required:
+        - message
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User ID
+        username:
+          type: string
+          description: Username
+        email:
+          type: string
+          format: email
+          description: User email
+        tenant_id:
+          type: string
+          format: uuid
+          description: Tenant ID
+        tenant_name:
+          type: string
+          description: Tenant name
+        tenant_role:
+          type: string
+          description: User role in the tenant
+          example: "admin"
+        last_login:
+          type: string
+          format: date-time
+          description: Last login timestamp
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+      required:
+        - id
+        - username
+        - email
+        - tenant_id
+        - tenant_name
+        - tenant_role
+        - created_at
+
+    ChangePasswordRequest:
+      type: object
+      properties:
+        old_password:
+          type: string
+          format: password
+          description: Current password
+        new_password:
+          type: string
+          format: password
+          description: New password
+      required:
+        - old_password
+        - new_password
+
+    ChangePasswordResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Password changed successfully"
+      required:
+        - message
+
+    ChangeUsernameRequest:
+      type: object
+      properties:
+        new_username:
+          type: string
+          description: New username
+          minLength: 3
+          maxLength: 50
+      required:
+        - new_username
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Audit log entry ID
+        user_id:
+          type: string
+          format: uuid
+          description: User ID who performed the action
+        action:
+          type: string
+          description: Action performed
+          example: "login"
+          enum:
+            - login
+            - logout
+            - password_change
+            - username_change
+            - profile_update
+            - failed_login
+        ip_address:
+          type: string
+          description: IP address of the request
+          example: "192.168.1.1"
+        user_agent:
+          type: string
+          description: User agent string
+        timestamp:
+          type: string
+          format: date-time
+          description: When the action occurred
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional action-specific details
+      required:
+        - id
+        - user_id
+        - action
+        - timestamp
+
+    AuditLogResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+        total:
+          type: integer
+          description: Total number of audit log entries
+        page:
+          type: integer
+          description: Current page number
+        page_size:
+          type: integer
+          description: Number of items per page
+      required:
+        - results
+        - total
+        - page
+        - page_size
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /v1/auth/login endpoint
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Presets
+    description: CTI preset management endpoints
+  - name: UI Deployments
+    description: Deployment management endpoints for UI
+  - name: Internal
+    description: Internal endpoints for worker communication
+  - name: Authentication
+    description: User authentication and profile management endpoints
