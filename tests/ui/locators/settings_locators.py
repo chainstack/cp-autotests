@@ -34,12 +34,23 @@ class SettingsPageLocators:
     FORM_LABEL_FLOATED = ".form-floating-label.is-floated"
     
     # Specific input fields
-    USERNAME_INPUT = "input[autocomplete='username']"
+    USERNAME_INPUT = "input#user-settings-username"
     EMAIL_INPUT = "input[autocomplete='email']"
     PASSWORD_INPUT = "input[type='password']"
+    NEW_PASSWORD_INPUT = "input#user-settings-new-password"
+    REPEAT_PASSWORD_INPUT = "input#user-settings-repeat-password"
+    CURRENT_PASSWORD_INPUT = "input#user-settings-current-password"
+    
+    # Form field error messages
+    USERNAME_ERROR = ".form-field:has(#user-settings-username) .form-error"
+    NEW_PASSWORD_ERROR = ".form-field:has(#user-settings-new-password) .form-error"
+    REPEAT_PASSWORD_ERROR = ".form-field:has(#user-settings-repeat-password) .form-error"
+    FIELD_ERROR = ".form-error"
+    FIELD_HELPER_TEXT = ".form-helper-text"
     
     # Buttons
-    SAVE_BUTTON = "button:has-text('Save')"
+    SAVE_BUTTON = "button:has-text('Save Changes')"
+    SAVE_BUTTON_DISABLED = "button.primary-button--disabled:has-text('Save Changes')"
     CANCEL_BUTTON = "button:has-text('Cancel')"
     CHANGE_PASSWORD_BUTTON = "button:has-text('Change password')"
     

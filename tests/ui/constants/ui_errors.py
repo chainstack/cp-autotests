@@ -1,0 +1,9 @@
+class SettingsErrors:
+    empty_username_error = "Username is required"
+    empty_password_error = "Password is required"
+    invalid_password_error = "Password must be at least 8 characters"
+    lowercase_password_error = "Password must contain at least one uppercase letter"
+    uppercase_password_error = "Password must contain at least one lowercase letter"
+    number_password_error = "Password must contain at least one number"
+    special_character_password_error = "Password must contain at least one special character"
+    password_mismatch_error = "Passwords do not match"

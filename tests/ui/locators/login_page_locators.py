@@ -7,8 +7,8 @@ class LoginPageLocators:
     logo_fallback = ".login-logo-icon"
     
     # Form inputs
-    username_input = "role=textbox[name=/username/i]"
-    password_input = "role=textbox[name=/password/i]"
+    username_input = "input[autocomplete='username']"
+    password_input = "input[type='password']"
     
     # Labels
     username_label = "text=Username"
@@ -19,7 +19,7 @@ class LoginPageLocators:
     
     # Buttons
     login_button = "role=button[name=/log in/i]"
-    secondary_link = "role=button[name=/don't have credentials/i]"
+    secondary_link = "role=button[name=/don.?t have credentials/i]"
     
     # Error messages
     error_message = "role=alert"

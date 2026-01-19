@@ -15,10 +15,16 @@ def browser_context_args(config: Settings):
 
 
 @pytest.fixture(scope="session")
-def browser_type_launch_args(config: Settings):
+def browser_type_launch_args(config: Settings, request):
+    # Check if --headed flag was passed to pytest
+    headed = request.config.getoption("--headed", default=False)
+    # Use CLI --slowmo if provided, otherwise fall back to config
+    slowmo = request.config.getoption("--slowmo", default=None)
+    if slowmo is None:
+        slowmo = config.slow_mo
     return {
-        "headless": config.headless,
-        "slow_mo": config.slow_mo,
+        "headless": not headed if headed else config.headless,
+        "slow_mo": slowmo,
     }
 
 
@@ -36,4 +42,4 @@ def authenticated_page(page: Page, config: Settings):
 
 @pytest.fixture(scope="session")
 def base_url(config: Settings):
-    return config.cp_ui_url
+    return config.cp_ui_url.rstrip('/')
