@@ -1,7 +1,7 @@
-"""Locators for Nodes page elements."""
+from tests.ui.locators.base_locators import BaseLocators
 
 
-class NodesPageLocators:
+class NodesPageLocators(BaseLocators):
     """Locators specific to the Nodes page."""
     
     # Page wrapper

@@ -7,3 +7,4 @@ class SettingsErrors:
     number_password_error = "Password must contain at least one number"
     special_character_password_error = "Password must contain at least one special character"
     password_mismatch_error = "Passwords do not match"
+    invalid_current_password_error = "Password update failed"

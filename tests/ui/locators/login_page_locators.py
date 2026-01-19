@@ -1,4 +1,6 @@
-class LoginPageLocators:
+from tests.ui.locators.base_locators import BaseLocators
+
+class LoginPageLocators(BaseLocators):
     # Main container
     login_page_container = ".login-page"
     

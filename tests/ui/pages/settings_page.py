@@ -218,3 +218,21 @@ class SettingsPage(BasePage):
         except Exception:
             return ""
 
+    @allure.step("Verify success toast message")
+    def verify_success_message(self, expected_message: str = None):
+        """Verify success message is displayed."""
+        self.wait_for_element(self.locators.SUCCESS_TOAST, timeout=TIMEOUT_MAX)
+        success_text = self.get_text(self.locators.SUCCESS_TOAST)
+        assert success_text == expected_message, f"Expected '{expected_message}' in success message, got '{success_text}'"
+        allure.attach(success_text, "Success Message", allure.attachment_type.TEXT)
+
+    @allure.step("Verify current password error message")
+    def verify_current_password_error(self, expected_error: str = None):
+        """Verify current password error message is displayed (shows as error toast)."""
+        self.wait_for_element(self.locators.ERROR_TOAST, timeout=TIMEOUT_MAX)
+        error_text = self.get_text(self.locators.ERROR_TOAST_TITLE)
+        assert error_text == expected_error, f"Expected '{expected_error}' in error, got '{error_text}'"
+        allure.attach(error_text, "Current Password Error", allure.attachment_type.TEXT)
+        return error_text
+    
+

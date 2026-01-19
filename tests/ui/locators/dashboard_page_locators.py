@@ -1,4 +1,6 @@
-class DashboardPageLocators:
+from tests.ui.locators.base_locators import BaseLocators
+
+class DashboardPageLocators(BaseLocators):
     # Main container
     welcome_page = ".welcome-page"
     nodes_page = ".nodes-list-page"

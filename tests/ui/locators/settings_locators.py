@@ -54,6 +54,16 @@ class SettingsPageLocators:
     CANCEL_BUTTON = "button:has-text('Cancel')"
     CHANGE_PASSWORD_BUTTON = "button:has-text('Change password')"
     
+    # Toast notifications
+    SUCCESS_TOAST = ".toast-variant-success"
+    SUCCESS_TOAST_TITLE = ".toast-title-success"
+    ERROR_TOAST = ".toast-variant-error"
+    ERROR_TOAST_TITLE = ".toast-title-error"
+    TOAST_MESSAGE = ".toast-message"
+    
+    # Current password error (shows as toast)
+    CURRENT_PASSWORD_ERROR = ".toast-title-error"
+    
     # Sections by title
     @staticmethod
     def section_by_title(title: str) -> str:
