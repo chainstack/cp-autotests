@@ -78,4 +78,5 @@ class BasePage:
     def logout(self):
         self.click(self.locators.AVATAR_BUTTON)
         self.click(self.locators.LOGOUT_BUTTON)
-    
+        # Wait for redirect to login page
+        self.page.wait_for_url(lambda url: "/login" in url, timeout=30000)

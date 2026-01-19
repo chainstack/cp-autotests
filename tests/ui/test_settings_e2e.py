@@ -112,9 +112,10 @@ class TestSettingsPageGeneral:
             settings_page.verify_save_button_disabled()
 
         with allure.step("Fill in new password and repeat password, fill current password, check save button"):
+            settings_page.fill_username(config.admin_log)
             settings_page.fill_new_password(new_password)
             settings_page.fill_repeat_password(new_password)
-            settings_page.fill_current_password(config.user_pass)
+            settings_page.fill_current_password(config.admin_pass)
             settings_page.verify_save_button_enabled()
 
 

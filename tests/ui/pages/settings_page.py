@@ -85,9 +85,10 @@ class SettingsPage(BasePage):
         """Verify personal information section is visible."""
         self.verify_element_visible(self.locators.PERSONAL_INFO_SECTION)
         self.verify_element_visible(self.locators.PERSONAL_INFO_TITLE)
-        self.verify_element_visible(self.locators.PERSONAL_INFO_USERNAME)
+        self.verify_element_visible(self.locators.USERNAME_INPUT)
         
-        assert self.get_text(self.locators.PERSONAL_INFO_USERNAME) == username, "Username does not match"
+        actual_username = self.get_username_value()
+        assert actual_username == username, f"Expected username '{username}', got '{actual_username}'"
         assert self.get_text(self.locators.PERSONAL_INFO_TITLE) == "Personal Information", "Personal Information title does not match"
 
     @allure.step("Verify form error: {expected_error}")
@@ -205,8 +206,9 @@ class SettingsPage(BasePage):
     @allure.step("Verify save button is enabled")
     def verify_save_button_enabled(self):
         """Verify save changes button is enabled."""
+        from playwright.sync_api import expect
         button = self.page.locator(self.locators.SAVE_BUTTON)
-        assert button.is_enabled(), "Save Changes button should be enabled"
+        expect(button).to_be_enabled(timeout=TIMEOUT_MAX)
         allure.attach("Button is enabled", "Save Button State", allure.attachment_type.TEXT)
 
     @allure.step("Get field error message by selector")

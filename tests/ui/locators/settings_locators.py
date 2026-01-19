@@ -71,6 +71,7 @@ class SettingsPageLocators:
         return f".welcome-card:has(.welcome-card-title:text('{title}'))"
     
     PERSONAL_INFO_SECTION = ".welcome-card:has(.welcome-card-title:text('Personal Information'))"
+    PERSONAL_INFO_TITLE = ".welcome-card-title:has-text('Personal Information')"
     SECURITY_SECTION = ".welcome-card:has(.welcome-card-title:text('Security'))"
     PREFERENCES_SECTION = ".welcome-card:has(.welcome-card-title:text('Preferences'))"
     
