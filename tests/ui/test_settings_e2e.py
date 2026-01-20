@@ -147,7 +147,7 @@ class TestSettingsFormValidation:
 @pytest.mark.regression_ui
 class TestSettingsErrorsValidation:
 
-    @allure.title("Settings page shows error messages when requements are not met")
+    @allure.title("Settings page shows error messages when requirements are not met")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("invalid_password, expected_error", [
         ("abc", SettingsErrors.invalid_password_error),
