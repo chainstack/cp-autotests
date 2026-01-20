@@ -81,9 +81,15 @@ class SettingsPage(BasePage):
         return self.page.locator(self.locators.EMAIL_INPUT).input_value()
 
     @allure.step("Verify personal info section visible")
-    def verify_personal_info_section_visible(self):
+    def verify_personal_info_section_visible(self, username: str = None):
         """Verify personal information section is visible."""
         self.verify_element_visible(self.locators.PERSONAL_INFO_SECTION)
+        self.verify_element_visible(self.locators.PERSONAL_INFO_TITLE)
+        self.verify_element_visible(self.locators.USERNAME_INPUT)
+        
+        actual_username = self.get_username_value()
+        assert actual_username == username, f"Expected username '{username}', got '{actual_username}'"
+        assert self.get_text(self.locators.PERSONAL_INFO_TITLE) == "Personal Information", "Personal Information title does not match"
 
     @allure.step("Verify form error: {expected_error}")
     def verify_form_error(self, expected_error: str = None):
@@ -138,3 +144,97 @@ class SettingsPage(BasePage):
     def cancel_action(self):
         """Click cancel/no button in dialog."""
         self.click(self.form_locators.CONFIRM_NO)
+
+    @allure.step("Fill new password")
+    def fill_new_password(self, password: str):
+        """Fill new password field."""
+        self.wait_for_element(self.locators.NEW_PASSWORD_INPUT)
+        self.fill(self.locators.NEW_PASSWORD_INPUT, password)
+
+    @allure.step("Fill repeat password")
+    def fill_repeat_password(self, password: str):
+        """Fill repeat password field."""
+        self.wait_for_element(self.locators.REPEAT_PASSWORD_INPUT)
+        self.fill(self.locators.REPEAT_PASSWORD_INPUT, password)
+
+    @allure.step("Fill current password")
+    def fill_current_password(self, password: str):
+        """Fill current password field."""
+        self.wait_for_element(self.locators.CURRENT_PASSWORD_INPUT)
+        self.fill(self.locators.CURRENT_PASSWORD_INPUT, password)
+
+    @allure.step("Clear username field")
+    def clear_username(self):
+        """Clear the username field."""
+        self.wait_for_element(self.locators.USERNAME_INPUT)
+        self.page.locator(self.locators.USERNAME_INPUT).clear()
+
+    @allure.step("Verify username error message")
+    def verify_username_error(self, expected_error: str = None):
+        """Verify username validation error."""
+        self.wait_for_element(self.locators.USERNAME_ERROR, timeout=TIMEOUT_MAX)
+        error_text = self.get_text(self.locators.USERNAME_ERROR)
+        assert error_text == expected_error, f"Expected '{expected_error}' in error, got '{error_text}'"
+        allure.attach(error_text, "Username Error", allure.attachment_type.TEXT)
+        return error_text
+
+    @allure.step("Verify new password error message")
+    def verify_password_error(self, expected_error: str = None):
+        """Verify new password validation error."""
+        self.wait_for_element(self.locators.NEW_PASSWORD_ERROR, timeout=TIMEOUT_MAX)
+        error_text = self.get_text(self.locators.NEW_PASSWORD_ERROR)
+        assert error_text == expected_error, f"Expected '{expected_error}' in error, got '{error_text}'"
+        allure.attach(error_text, "Password Error", allure.attachment_type.TEXT)
+        return error_text
+
+    @allure.step("Verify repeat password error message")
+    def verify_repeat_password_error(self, expected_error: str = None):
+        """Verify repeat password validation error."""
+        self.wait_for_element(self.locators.REPEAT_PASSWORD_ERROR, timeout=TIMEOUT_MAX)
+        error_text = self.get_text(self.locators.REPEAT_PASSWORD_ERROR)
+        assert error_text == expected_error, f"Expected '{expected_error}' in error, got '{error_text}'"
+        allure.attach(error_text, "Repeat Password Error", allure.attachment_type.TEXT)
+        return error_text
+
+    @allure.step("Verify save button is disabled")
+    def verify_save_button_disabled(self):
+        """Verify save changes button is disabled."""
+        button = self.page.locator(self.locators.SAVE_BUTTON)
+        assert button.is_disabled(), "Save Changes button should be disabled"
+        allure.attach("Button is disabled", "Save Button State", allure.attachment_type.TEXT)
+
+    @allure.step("Verify save button is enabled")
+    def verify_save_button_enabled(self):
+        """Verify save changes button is enabled."""
+        from playwright.sync_api import expect
+        button = self.page.locator(self.locators.SAVE_BUTTON)
+        expect(button).to_be_enabled(timeout=TIMEOUT_MAX)
+        allure.attach("Button is enabled", "Save Button State", allure.attachment_type.TEXT)
+
+    @allure.step("Get field error message by selector")
+    def get_field_error_message(self, error_selector: str) -> str:
+        """Get error message from a field error element."""
+        try:
+            self.wait_for_element(error_selector, timeout=TIMEOUT_MAX)
+            return self.get_text(error_selector)
+        except Exception:
+            return ""
+
+    @allure.step("Verify success toast message")
+    def verify_success_message(self, expected_message: str = None):
+        """Verify success message is displayed."""
+        self.wait_for_element(self.locators.SUCCESS_TOAST, timeout=TIMEOUT_MAX)
+        success_text = self.get_text(self.locators.SUCCESS_TOAST)
+        assert success_text == expected_message, f"Expected '{expected_message}' in success message, got '{success_text}'"
+        allure.attach(success_text, "Success Message", allure.attachment_type.TEXT)
+
+    @allure.step("Verify current password error message")
+    def verify_current_password_error(self, expected_error: str = None):
+        """Verify current password error message is displayed (shows as error toast)."""
+        self.wait_for_element(self.locators.ERROR_TOAST, timeout=TIMEOUT_MAX)
+        error_text = self.get_text(self.locators.ERROR_TOAST_TITLE)
+        assert error_text == expected_error, f"Expected '{expected_error}' in error, got '{error_text}'"
+        allure.attach(error_text, "Current Password Error", allure.attachment_type.TEXT)
+        return error_text
+    
+

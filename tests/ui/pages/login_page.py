@@ -24,6 +24,8 @@ class LoginPage(BasePage):
         self.fill(self.locators.username_input, username)
         self.fill(self.locators.password_input, password)
         self.click(self.locators.login_button)
+        # Wait for navigation away from login page
+        self.page.wait_for_url(lambda url: "/login" not in url, timeout=TIMEOUT_MAX)
 
     @allure.step("Fill username: {username}")
     def fill_username(self, username: str):

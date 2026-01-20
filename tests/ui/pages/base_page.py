@@ -73,3 +73,10 @@ class BasePage:
     @allure.step("Verify text contains: {text}")
     def verify_text_contains(self, selector: str, text: str):
         expect(self.page.locator(selector)).to_contain_text(text)
+
+    @allure.step("Logout")
+    def logout(self):
+        self.click(self.locators.AVATAR_BUTTON)
+        self.click(self.locators.LOGOUT_BUTTON)
+        # Wait for redirect to login page
+        self.page.wait_for_url(lambda url: "/login" in url, timeout=30000)

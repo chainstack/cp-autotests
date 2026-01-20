@@ -12,11 +12,14 @@ class Settings(BaseSettings):
     )
 
     cp_nodes_api_url: str = "http://localhost:8080"
-    cp_ui_url: str = "http://localhost:5173"
+    cp_ui_url: str
     cp_internal_api_url: str = "http://localhost:8081"
 
     user_log: Optional[str] = None
     user_pass: Optional[str] = None
+
+    admin_log: Optional[str] = None
+    admin_pass: Optional[str] = None
 
     api_token: Optional[str] = None
     api_key: Optional[str] = None

@@ -1,7 +1,7 @@
-"""Locators for Monitoring page elements."""
+from tests.ui.locators.base_locators import BaseLocators
 
 
-class MonitoringPageLocators:
+class MonitoringPageLocators(BaseLocators):
     """Locators specific to the Monitoring page."""
     
     # Page structure

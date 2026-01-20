@@ -72,3 +72,6 @@ logs/
 # Test artifacts
 *.har
 *.zip
+
+# Agent
+.agent/

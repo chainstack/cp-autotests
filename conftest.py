@@ -6,6 +6,13 @@ from config.settings import Settings
 
 load_dotenv()
 
+pytest_plugins = [
+    "fixtures.playwright_fixtures",
+    "fixtures.api_fixtures",
+    "fixtures.eth_fixtures",
+    "fixtures.k8s_fixtures",
+]
+
 
 def pytest_configure(config):
     """Configure pytest with custom settings."""

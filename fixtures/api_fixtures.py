@@ -83,3 +83,48 @@ def invalid_credentials(invalid_username, invalid_password):
         "username": invalid_username,
         "password": invalid_password
     }
+
+
+@pytest.fixture(scope="function")
+def password_reset_teardown(config: Settings):
+    """
+    Fixture to reset password after a test that changes it.
+    
+    Usage:
+        def test_change_password(password_reset_teardown):
+            new_password = "NewSecurePass123!"
+            password_reset_teardown["new_password"] = new_password
+            # ... test changes password via UI ...
+    
+    After test completes, this fixture reverts the password via API.
+    """
+    context = {
+        "original_password": config.admin_pass,
+        "new_password": None,  # Test must set this
+        "username": config.admin_log,
+    }
+    
+    yield context
+    
+    # Teardown: Revert password via API
+    if context["new_password"]:
+        # Use cp_nodes_api_url if set, otherwise derive from cp_ui_url
+        api_url = config.cp_nodes_api_url if config.cp_nodes_api_url else config.cp_ui_url.rstrip('/')
+        client = AuthAPIClient(Settings())
+        client.base_url = api_url.rstrip('/')
+        # Login with new password to get token
+        login_response = client.login(context["username"], context["new_password"])
+        if login_response.status_code == 200:
+            token = login_response.json().get("access_token")
+            client.token = token
+            # Change password back to original
+            reset_response = client.change_password(
+                old_password=context["new_password"],
+                new_password=context["original_password"]
+            )
+            if reset_response.status_code != 200:
+                print(f"WARNING: Failed to reset password: {reset_response.text}")
+        else:
+            print(f"WARNING: Failed to login with new password for reset: {login_response.text}")
+        client.close()
+

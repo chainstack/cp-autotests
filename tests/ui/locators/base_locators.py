@@ -30,6 +30,11 @@ class BaseLocators:
     SVG_INLINE_ICON = ".svg-inline-icon"
     SVG_ICON = ".svg-icon"
 
+    # User profile
+    AVATAR_BUTTON = ".logout-avatarFallback"
+    LOGOUT_USERNAME = ".logout-username"
+    LOGOUT_BUTTON = ".logout-itemLabel"
+
 
 class SidebarNavigationLocators:
     """Locators for sidebar navigation items."""
