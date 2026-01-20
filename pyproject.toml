@@ -78,8 +78,8 @@ markers = [
     "slow: Slow running tests",
     "integration: Integration tests",
     "e2e: End-to-end API tests",
-    "smoke-ui: End-to-end UI smoke tests",
-    "regression-ui: End-to-end UI regression tests",
+    "smoke_ui: End-to-end UI smoke tests",
+    "regression_ui: End-to-end UI regression tests",
     "contract: Contract tests",
     "unit: Unit tests",
 ]
