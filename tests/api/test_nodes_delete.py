@@ -1,0 +1,185 @@
+"""API tests for Delete Node endpoint - POST /v1/ui/nodes/{id}/schedule-delete."""
+import pytest
+import allure
+import base64
+from pydantic import ValidationError
+from tests.api.schemas.node_schemas import ScheduleDeleteNodeResponse, ErrorResponse
+
+
+# Helper functions for invalid token generation
+def generate_invalid_tokens():
+    return [
+        "invalid_token",
+        "Bearer invalid",
+        "",
+        "null",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+    ]
+
+
+INVALID_UUID_CASES = [
+    "invalid-uuid",
+    "12345",
+    "not-a-uuid",
+    "",
+    " ",
+    "00000000-0000-0000-0000-00000000000g",
+    "00000000_0000_0000_0000_000000000000",
+    "00000000-0000-0000-0000-0000000000001",  # Too many digits
+    "00000000-0000-0000-0000-00000000000",   # Too few digits
+]
+
+
+@allure.feature("Nodes")
+@allure.story("Delete Node")
+@pytest.mark.api
+class TestNodesDeleteGeneral:
+
+    @allure.title("Schedule node deletion successfully")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.smoke
+    def test_schedule_delete_node_success(self, authenticated_nodes_client, created_node_for_deletion):
+        node_id = created_node_for_deletion["deployment_id"]
+        response = authenticated_nodes_client.schedule_delete_node(node_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        try:
+            delete_response = ScheduleDeleteNodeResponse(**response.json())
+            assert delete_response.deployment_id == node_id, "Deployment ID should match"
+            assert delete_response.state, "State should not be empty"
+        except ValidationError as e:
+            pytest.fail(f"Delete node response schema validation failed: {e}")
+
+    @allure.title("Schedule delete check response headers")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_schedule_delete_check_headers(self, authenticated_nodes_client, created_node_for_deletion):
+        node_id = created_node_for_deletion["deployment_id"]
+        response = authenticated_nodes_client.schedule_delete_node(node_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert "application/json" in response.headers.get("Content-Type", ""), \
+            "Content-Type should be application/json"
+
+    @allure.title("Schedule delete same node twice")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_schedule_delete_idempotent(self, authenticated_nodes_client, created_node_for_deletion):
+        node_id = created_node_for_deletion["deployment_id"]
+        
+        # First delete
+        response1 = authenticated_nodes_client.schedule_delete_node(node_id)
+        assert response1.status_code == 200, f"First delete: Expected 200, got {response1.status_code}"
+        
+        # Second delete - should be idempotent or return appropriate error
+        response2 = authenticated_nodes_client.schedule_delete_node(node_id)
+        # Could be 200 (idempotent) or 400/404 (already scheduled/deleted)
+        assert response2.status_code in [200, 400, 404, 409], \
+            f"Second delete: Expected 200/400/404/409, got {response2.status_code}"
+
+
+@allure.feature("Nodes")
+@allure.story("Delete Node")
+@pytest.mark.api
+class TestNodesDeleteValidation:
+
+    @allure.title("Schedule delete with invalid UUID format")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("invalid_id", INVALID_UUID_CASES)
+    def test_schedule_delete_invalid_id_format(self, authenticated_nodes_client, invalid_id):
+        response = authenticated_nodes_client.schedule_delete_node(invalid_id)
+        
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        ErrorResponse(**response.json())
+
+    @allure.title("Schedule delete with non-existent node ID")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_schedule_delete_not_found(self, authenticated_nodes_client):
+        non_existent_id = "00000000-0000-0000-0000-000000000000"
+        response = authenticated_nodes_client.schedule_delete_node(non_existent_id)
+        
+        # Could be 404 or 400 depending on implementation
+        assert response.status_code in [400, 404], f"Expected 400 or 404, got {response.status_code}"
+        ErrorResponse(**response.json())
+
+    @allure.title("Schedule delete with SQL injection attempt in ID")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.parametrize("malicious_id", [
+        "'; DROP TABLE nodes; --",
+        "1 OR 1=1",
+        "00000000-0000-0000-0000-000000000000' OR '1'='1",
+        "<script>alert('xss')</script>",
+    ])
+    def test_schedule_delete_sql_injection(self, authenticated_nodes_client, malicious_id):
+        response = authenticated_nodes_client.schedule_delete_node(malicious_id)
+        
+        # Should be rejected with 400, not 500
+        assert response.status_code in [400, 404], f"Expected 400/404, got {response.status_code}"
+        ErrorResponse(**response.json())
+
+    @allure.title("Schedule delete with path traversal attempt")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.parametrize("malicious_id", [
+        "../../../etc/passwd",
+        "..%2F..%2F..%2Fetc%2Fpasswd",
+        "00000000-0000-0000-0000-000000000000/../",
+    ])
+    def test_schedule_delete_path_traversal(self, authenticated_nodes_client, malicious_id):
+        response = authenticated_nodes_client.schedule_delete_node(malicious_id)
+        
+        assert response.status_code in [400, 404], f"Expected 400/404, got {response.status_code}"
+
+
+@allure.feature("Nodes")
+@allure.story("Delete Node")
+@pytest.mark.api
+class TestNodesDeleteAccess:
+
+    @allure.title("Schedule delete without authentication token")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_schedule_delete_without_auth_token(self, authenticated_nodes_client, existing_node_id):
+        token = authenticated_nodes_client.token
+        authenticated_nodes_client.token = None
+        
+        response = authenticated_nodes_client.schedule_delete_node(existing_node_id)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_nodes_client.token = token
+
+    @allure.title("Schedule delete with invalid authentication token")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.parametrize("invalid_token", generate_invalid_tokens())
+    def test_schedule_delete_with_invalid_token(self, authenticated_nodes_client, existing_node_id, invalid_token):
+        token = authenticated_nodes_client.token
+        authenticated_nodes_client.token = invalid_token
+        
+        response = authenticated_nodes_client.schedule_delete_node(existing_node_id)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_nodes_client.token = token
+
+    @allure.title("Schedule delete with wrong auth type (Basic instead of Bearer)")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_schedule_delete_with_wrong_auth_type(self, authenticated_nodes_client, existing_node_id):
+        token = authenticated_nodes_client.token
+        authenticated_nodes_client.token = "Basic " + base64.b64encode(token.encode()).decode()
+        
+        response = authenticated_nodes_client.schedule_delete_node(existing_node_id)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_nodes_client.token = token
+
+    @allure.title("Schedule delete with expired token")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_schedule_delete_with_expired_token(self, authenticated_nodes_client, existing_node_id):
+        token = authenticated_nodes_client.token
+        # Expired JWT token (exp claim in the past)
+        expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZXhwIjoxfQ.2H1gL8Yy0N8Zr8VqPy8gQ9Y5HvL7R3z3q2w0u8y111c"
+        authenticated_nodes_client.token = expired_token
+        
+        response = authenticated_nodes_client.schedule_delete_node(existing_node_id)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_nodes_client.token = token

@@ -84,7 +84,6 @@ def invalid_credentials(invalid_username, invalid_password):
         "password": invalid_password
     }
 
-
 @pytest.fixture(scope="function")
 def password_reset_teardown(config: Settings):
     """
@@ -128,3 +127,65 @@ def password_reset_teardown(config: Settings):
             print(f"WARNING: Failed to login with new password for reset: {login_response.text}")
         client.close()
 
+# Node-specific fixtures
+
+@pytest.fixture(scope="function")
+def authenticated_nodes_client(config: Settings):
+    from clients.api_client import AuthAPIClient, NodesAPIClient
+    
+    auth_client = AuthAPIClient(config)
+    response = auth_client.login(config.admin_log, config.admin_pass)
+    
+    if response.status_code == 200:
+        token = response.json().get("access_token")
+        client = NodesAPIClient(config, token=token)
+        yield client
+        client.close()
+    else:
+        raise Exception(f"Failed to authenticate for nodes client: {response.status_code}")
+    auth_client.close()
+
+
+@pytest.fixture(scope="function")
+def existing_node_id(authenticated_nodes_client, valid_eth_preset_instance_id):
+    response = authenticated_nodes_client.list_nodes()
+    if response.status_code == 200:
+        nodes = response.json().get("results", [])
+        if nodes:
+            return nodes[0]["id"]
+        return authenticated_nodes_client.create_node(preset_instance_id=valid_eth_preset_instance_id).json()["id"]
+    raise Exception("Failed to get existing node ID")
+
+
+@pytest.fixture(scope="session")
+def valid_eth_preset_instance_id():
+    """A valid preset instance ID for node creation tests."""
+    # This should match an actual preset in the system
+    # TODO: Update with actual preset ID from the environment
+    return "gts.c.cp.presets.blockchain_preset.v1.0~c.cp.presets.evm_preset.v1.0~c.cp.presets.evm_reth_prysm.v1.0~c.cp.presets.ethereum_mainnet.v1.0"
+
+
+@pytest.fixture(scope="function")
+def cleanup_created_node(authenticated_nodes_client):
+    """Fixture to cleanup nodes created during tests."""
+    node_data = {}
+    yield node_data
+    # Cleanup: schedule delete if node was created
+    if "deployment_id" in node_data:
+        try:
+            authenticated_nodes_client.schedule_delete_node(node_data["deployment_id"])
+        except Exception:
+            pass  # Ignore cleanup errors
+
+
+@pytest.fixture(scope="function")
+def created_node_for_deletion(authenticated_nodes_client, valid_eth_preset_instance_id):
+    """Create a node specifically for deletion tests."""
+    response = authenticated_nodes_client.create_node(
+        preset_instance_id=valid_eth_preset_instance_id
+    )
+    if response.status_code == 201:
+        data = response.json()
+        yield {"deployment_id": data["deployment_id"]}
+    else:
+        pytest.skip(f"Could not create node for deletion test: {response.status_code}")

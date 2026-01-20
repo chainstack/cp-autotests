@@ -11,6 +11,7 @@ pytest_plugins = [
     "fixtures.api_fixtures",
     "fixtures.eth_fixtures",
     "fixtures.k8s_fixtures",
+    "fixtures.ui_fixtures",
 ]
 
 

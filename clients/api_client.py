@@ -135,26 +135,26 @@ class APIClient:
 
 
 class NodesAPIClient(APIClient):
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, token: Optional[str] = None):
         super().__init__(
             base_url=settings.cp_nodes_api_url,
-            token=settings.api_token
+            token=token or settings.api_token
         )
 
-    def create_node(self, node_data: Dict[str, Any]) -> httpx.Response:
-        return self.post("/ui/nodes", json=node_data)
+    def create_node(self, preset_instance_id: str, preset_override_values: Optional[Dict[str, Any]] = None) -> httpx.Response:
+        payload = {"preset_instance_id": preset_instance_id}
+        if preset_override_values:
+            payload["preset_override_values"] = preset_override_values
+        return self.post("/v1/ui/nodes", json=payload)
 
-    def get_nodes(self, filters: Optional[Dict[str, Any]] = None) -> httpx.Response:
-        return self.get("/ui/nodes", params=filters)
+    def list_nodes(self) -> httpx.Response:
+        return self.get("/v1/ui/nodes")
 
     def get_node(self, node_id: str) -> httpx.Response:
-        return self.get(f"/ui/nodes/{node_id}")
+        return self.get(f"/v1/ui/nodes/{node_id}")
 
-    def update_node(self, node_id: str, update_data: Dict[str, Any]) -> httpx.Response:
-        return self.put(f"/ui/nodes/{node_id}", json=update_data)
-
-    def delete_node(self, node_id: str) -> httpx.Response:
-        return self.delete(f"/ui/nodes/{node_id}")
+    def schedule_delete_node(self, node_id: str) -> httpx.Response:
+        return self.post(f"/v1/ui/nodes/{node_id}/schedule-delete")
 
 
 class InternalAPIClient(APIClient):
