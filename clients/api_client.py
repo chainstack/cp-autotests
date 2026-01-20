@@ -2,6 +2,7 @@ import httpx
 import allure
 from typing import Optional, Dict, Any
 from config.settings import Settings
+from utils.http_logger import LogHTTPResponse
 
 
 class APIClient:
@@ -28,6 +29,10 @@ class APIClient:
         
         return headers
 
+    def _log_response(self, response: httpx.Response, stage: str) -> httpx.Response:
+        LogHTTPResponse(response, stage)
+        return response
+
     @allure.step("GET {endpoint}")
     def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, 
             headers: Optional[Dict[str, str]] = None) -> httpx.Response:
@@ -40,7 +45,7 @@ class APIClient:
             allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
             allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
         
-        return response
+        return self._log_response(response, f"GET {endpoint}")
 
     @allure.step("POST {endpoint}")
     def post(self, endpoint: str, json: Optional[Dict[str, Any]] = None,
@@ -54,7 +59,8 @@ class APIClient:
             allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
             allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
         
-        return response
+        return self._log_response(response, f"POST {endpoint}")
+
 
     @allure.step("PUT {endpoint}")
     def put(self, endpoint: str, json: Optional[Dict[str, Any]] = None,
@@ -68,7 +74,7 @@ class APIClient:
             allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
             allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
         
-        return response
+        return self._log_response(response, f"PUT {endpoint}")
 
     @allure.step("DELETE {endpoint}")
     def delete(self, endpoint: str, headers: Optional[Dict[str, str]] = None) -> httpx.Response:
@@ -80,7 +86,7 @@ class APIClient:
             allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
             allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
         
-        return response
+        return self._log_response(response, f"DELETE {endpoint}")
 
     @allure.step("PATCH {endpoint}")
     def patch(self, endpoint: str, json: Optional[Dict[str, Any]] = None,
@@ -94,7 +100,7 @@ class APIClient:
             allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
             allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
         
-        return response
+        return self._log_response(response, f"PATCH {endpoint}")
 
     @allure.step("Custom Request {method} {endpoint}")
     def send_custom_request(self, method: str, endpoint: str, 
