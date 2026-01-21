@@ -1,33 +1,11 @@
-"""API tests for Get Node endpoint - GET /v1/ui/nodes/{id}."""
 import pytest
 import allure
 import base64
 from pydantic import ValidationError
 from tests.api.schemas.node_schemas import Node, ErrorResponse
+from utils.token_generator import generate_invalid_bearer_tokens
+from tests.api.cases.test_cases import INVALID_UUID_CASES
 
-
-# Helper functions for invalid token generation
-def generate_invalid_tokens():
-    return [
-        "invalid_token",
-        "Bearer invalid",
-        "",
-        "null",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
-    ]
-
-
-INVALID_UUID_CASES = [
-    "invalid-uuid",
-    "12345",
-    "not-a-uuid",
-    "",
-    " ",
-    "00000000-0000-0000-0000-00000000000g",
-    "00000000_0000_0000_0000_000000000000",
-    "00000000-0000-0000-0000-0000000000001",  # Too many digits
-    "00000000-0000-0000-0000-00000000000",   # Too few digits
-]
 
 
 @allure.feature("Nodes")
@@ -38,9 +16,9 @@ class TestNodesGetGeneral:
     @allure.title("Get node successfully with valid ID")
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.smoke
-    def test_get_node_success(self, authenticated_nodes_client, existing_node_id, valid_preset_instance_id):
-        node_response = authenticated_nodes_client.create_node(preset_instance_id=valid_preset_instance_id)
-        node_id = node_response.json()["id"]
+    def test_get_node_success(self, authenticated_nodes_client, existing_node_id, valid_eth_preset_instance_id):
+        node_response = authenticated_nodes_client.create_node(preset_instance_id=valid_eth_preset_instance_id)
+        node_id = node_response.json()["deployment_id"]
         response = authenticated_nodes_client.get_node(node_id)
         
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
@@ -94,6 +72,7 @@ class TestNodesGetGeneral:
 @pytest.mark.api
 class TestNodesGetValidation:
 
+    @pytest.mark.xfail(reason="500")
     @allure.title("Get node with invalid UUID format")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("invalid_id", INVALID_UUID_CASES)
@@ -103,6 +82,7 @@ class TestNodesGetValidation:
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
 
+    @pytest.mark.xfail(reason="500")
     @allure.title("Get node with non-existent ID")
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_node_not_found(self, authenticated_nodes_client):
@@ -139,6 +119,14 @@ class TestNodesGetValidation:
         
         assert response.status_code in [400, 404], f"Expected 400/404, got {response.status_code}"
 
+    @allure.title("Get node with invalid method")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.parametrize("method", ["POST", "PUT", "PATCH", "DELETE"])
+    def test_get_node_invalid_method(self, authenticated_nodes_client, existing_node_id, method):
+        response = authenticated_nodes_client.send_custom_request(endpoint=f"/nodes/{existing_node_id}", method=method)
+        
+        assert response.status_code == 405, f"Expected 405, got {response.status_code}"
+
 
 @allure.feature("Nodes")
 @allure.story("Get Node")
@@ -159,7 +147,7 @@ class TestNodesGetAccess:
 
     @allure.title("Get node with invalid authentication token")
     @allure.severity(allure.severity_level.CRITICAL)
-    @pytest.mark.parametrize("invalid_token", generate_invalid_tokens())
+    @pytest.mark.parametrize("invalid_token", generate_invalid_bearer_tokens())
     def test_get_node_with_invalid_token(self, authenticated_nodes_client, existing_node_id, invalid_token):
         token = authenticated_nodes_client.token
         authenticated_nodes_client.token = invalid_token

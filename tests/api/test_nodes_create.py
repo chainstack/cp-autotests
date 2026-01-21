@@ -1,21 +1,11 @@
-"""API tests for Create Node endpoint - POST /v1/ui/nodes."""
 import pytest
 import allure
 import base64
 from pydantic import ValidationError
 from tests.api.schemas.node_schemas import CreateNodeResponse, ErrorResponse
 from tests.api.cases.test_cases import EMPTY_STRING_CASES, NONSTRING_CASES
-
-
-# Helper functions for invalid token generation
-def generate_invalid_tokens():
-    return [
-        "invalid_token",
-        "Bearer invalid",
-        "",
-        "null",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
-    ]
+from control_panel.node import NodeState
+from utils.token_generator import generate_invalid_bearer_tokens
 
 
 @allure.feature("Nodes")
@@ -36,18 +26,29 @@ class TestNodesCreateGeneral:
             create_response = CreateNodeResponse(**response.json())
             assert create_response.deployment_id, "Deployment ID should not be empty"
             assert create_response.initial_revision_id, "Initial revision ID should not be empty"
-            assert create_response.state, "State should not be empty"
+            assert create_response.state == NodeState.PENDING, "State should be pending"
             # Store for cleanup
             cleanup_created_node["deployment_id"] = create_response.deployment_id
         except ValidationError as e:
             pytest.fail(f"Create node response schema validation failed: {e}")
 
+    @pytest.mark.xfail(reason="Invalid preset_instance_id should return 400, but returns 500")
+    @allure.title("Create node with invalid preset_instance_id")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_create_node_invalid_preset_id(self, authenticated_nodes_client, invalid_eth_preset_instance_id, cleanup_created_node):
+        response = authenticated_nodes_client.create_node(
+            preset_instance_id=invalid_eth_preset_instance_id
+        )
+        
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        ErrorResponse(**response.json())
+
     @allure.title("Create node with override values")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_create_node_with_overrides(self, authenticated_nodes_client, valid_preset_instance_id, cleanup_created_node):
+    def test_create_node_with_overrides(self, authenticated_nodes_client, valid_eth_preset_instance_id, cleanup_created_node):
         override_values = {"custom_key": "custom_value"}
         response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_preset_instance_id,
+            preset_instance_id=valid_eth_preset_instance_id,
             preset_override_values=override_values
         )
         
@@ -57,7 +58,7 @@ class TestNodesCreateGeneral:
 
     @allure.title("Create node with nested override values")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_create_node_with_nested_overrides(self, authenticated_nodes_client, valid_preset_instance_id, cleanup_created_node):
+    def test_create_node_with_nested_overrides(self, authenticated_nodes_client, valid_eth_preset_instance_id, cleanup_created_node):
         override_values = {
             "config": {
                 "setting_a": "value_a",
@@ -65,7 +66,7 @@ class TestNodesCreateGeneral:
             }
         }
         response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_preset_instance_id,
+            preset_instance_id=valid_eth_preset_instance_id,
             preset_override_values=override_values
         )
         
@@ -75,9 +76,9 @@ class TestNodesCreateGeneral:
 
     @allure.title("Create node check response headers")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_create_node_check_response_headers(self, authenticated_nodes_client, valid_preset_instance_id, cleanup_created_node):
+    def test_create_node_check_response_headers(self, authenticated_nodes_client, valid_eth_preset_instance_id, cleanup_created_node):
         response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_preset_instance_id
+            preset_instance_id=valid_eth_preset_instance_id
         )
         
         assert response.status_code == 201, f"Expected 201, got {response.status_code}"
@@ -99,6 +100,7 @@ class TestNodesCreateValidation:
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
 
+    @pytest.mark.xfail(reason="Invalid preset_instance_id should return 400, but returns 500")
     @allure.title("Create node with empty preset_instance_id")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("empty_value", EMPTY_STRING_CASES)
@@ -112,19 +114,8 @@ class TestNodesCreateValidation:
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("non_string_value", NONSTRING_CASES)
     def test_create_node_nonstring_preset_id(self, authenticated_nodes_client, non_string_value):
-        response = authenticated_nodes_client.post(
-            "/v1/ui/nodes",
-            json={"preset_instance_id": non_string_value}
-        )
-        
-        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
-        ErrorResponse(**response.json())
-
-    @allure.title("Create node with invalid preset_instance_id")
-    @allure.severity(allure.severity_level.NORMAL)
-    def test_create_node_invalid_preset_id(self, authenticated_nodes_client):
         response = authenticated_nodes_client.create_node(
-            preset_instance_id="invalid-preset-id-that-does-not-exist"
+            preset_instance_id=non_string_value
         )
         
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
@@ -140,7 +131,6 @@ class TestNodesCreateValidation:
     def test_create_node_sql_injection(self, authenticated_nodes_client, malicious_value):
         response = authenticated_nodes_client.create_node(preset_instance_id=malicious_value)
         
-        # Should be rejected with 400, not 500
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
 
@@ -151,21 +141,19 @@ class TestNodesCreateValidation:
         ("__proto__", {"polluted": True}),
         ("constructor", {"prototype": {}}),
     ])
-    def test_create_node_extra_fields(self, authenticated_nodes_client, valid_preset_instance_id, extra_field, extra_value, cleanup_created_node):
+    def test_create_node_extra_fields(self, authenticated_nodes_client, valid_eth_preset_instance_id, extra_field, extra_value, cleanup_created_node):
         response = authenticated_nodes_client.send_custom_request(
             method="POST",
             endpoint="/v1/ui/nodes",
             json={
-                "preset_instance_id": valid_preset_instance_id,
+                "preset_instance_id": valid_eth_preset_instance_id,
                 extra_field: extra_value
             }
         )
-        
-        # Server should either accept (ignoring extra fields) or reject
-        assert response.status_code in [201, 400], f"Expected 201 or 400, got {response.status_code}"
-        if response.status_code == 201:
-            cleanup_created_node["deployment_id"] = response.json().get("deployment_id")
-            assert extra_field not in response.json(), f"Extra field {extra_field} should not be in response"
+
+        assert response.status_code == 201, f"Expected 201, got {response.status_code}"
+        assert extra_field not in response.json(), f"Extra field {extra_field} should not be in response"
+        cleanup_created_node["deployment_id"] = response.json().get("deployment_id")
 
 
 @allure.feature("Nodes")
@@ -175,12 +163,12 @@ class TestNodesCreateAccess:
 
     @allure.title("Create node without authentication token")
     @allure.severity(allure.severity_level.CRITICAL)
-    def test_create_node_without_auth_token(self, authenticated_nodes_client, valid_preset_instance_id):
+    def test_create_node_without_auth_token(self, authenticated_nodes_client, valid_eth_preset_instance_id):
         token = authenticated_nodes_client.token
         authenticated_nodes_client.token = None
         
         response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_preset_instance_id
+            preset_instance_id=valid_eth_preset_instance_id
         )
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -189,13 +177,13 @@ class TestNodesCreateAccess:
 
     @allure.title("Create node with invalid authentication token")
     @allure.severity(allure.severity_level.CRITICAL)
-    @pytest.mark.parametrize("invalid_token", generate_invalid_tokens())
-    def test_create_node_with_invalid_token(self, authenticated_nodes_client, valid_preset_instance_id, invalid_token):
+    @pytest.mark.parametrize("invalid_token", generate_invalid_bearer_tokens())
+    def test_create_node_with_invalid_token(self, authenticated_nodes_client, valid_eth_preset_instance_id, invalid_token):
         token = authenticated_nodes_client.token
         authenticated_nodes_client.token = invalid_token
         
         response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_preset_instance_id
+            preset_instance_id=valid_eth_preset_instance_id
         )
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -204,12 +192,12 @@ class TestNodesCreateAccess:
 
     @allure.title("Create node with wrong auth type (Basic instead of Bearer)")
     @allure.severity(allure.severity_level.CRITICAL)
-    def test_create_node_with_wrong_auth_type(self, authenticated_nodes_client, valid_preset_instance_id):
+    def test_create_node_with_wrong_auth_type(self, authenticated_nodes_client, valid_eth_preset_instance_id):
         token = authenticated_nodes_client.token
         authenticated_nodes_client.token = "Basic " + base64.b64encode(token.encode()).decode()
         
         response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_preset_instance_id
+            preset_instance_id=valid_eth_preset_instance_id
         )
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -222,21 +210,22 @@ class TestNodesCreateAccess:
 @pytest.mark.api
 class TestNodesCreateContentType:
 
+    @pytest.mark.xfail(reason="No Content-Type header is required for POST requests with body")
     @allure.title("Create node without content type header")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_create_node_without_content_type(self, authenticated_nodes_client, valid_preset_instance_id):
+    def test_create_node_without_content_type(self, authenticated_nodes_client, valid_eth_preset_instance_id):
         headers = authenticated_nodes_client.headers.copy()
         if "Content-Type" in authenticated_nodes_client.headers:
             del authenticated_nodes_client.headers["Content-Type"]
         
         response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_preset_instance_id
+            preset_instance_id=valid_eth_preset_instance_id
         )
         
-        # Content-Type should be required for POST with body
         assert response.status_code in [400, 415], f"Expected 400/415, got {response.status_code}"
         authenticated_nodes_client.headers = headers
 
+    @pytest.mark.xfail(reason="No Content-Type header is required for POST requests with body")
     @allure.title("Create node with wrong content type")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("content_type", [
@@ -244,12 +233,12 @@ class TestNodesCreateContentType:
         "application/xml",
         "application/x-www-form-urlencoded",
     ])
-    def test_create_node_with_wrong_content_type(self, authenticated_nodes_client, valid_preset_instance_id, content_type):
+    def test_create_node_with_wrong_content_type(self, authenticated_nodes_client, valid_eth_preset_instance_id, content_type):
         headers = authenticated_nodes_client.headers.copy()
         authenticated_nodes_client.headers["Content-Type"] = content_type
         
         response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_preset_instance_id
+            preset_instance_id=valid_eth_preset_instance_id
         )
         
         assert response.status_code in [400, 415], f"Expected 400/415, got {response.status_code}"

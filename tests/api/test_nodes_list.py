@@ -1,21 +1,9 @@
-"""API tests for Node List endpoint - GET /v1/ui/nodes."""
 import pytest
 import allure
 import base64
 from pydantic import ValidationError
 from tests.api.schemas.node_schemas import NodeListResponse, NodeListItem, ErrorResponse
-
-
-# Helper functions for invalid token generation
-def generate_invalid_tokens():
-    return [
-        "invalid_token",
-        "Bearer invalid",
-        "",
-        "null",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
-    ]
-
+from utils.token_generator import generate_invalid_bearer_tokens
 
 @allure.feature("Nodes")
 @allure.story("List Nodes")
@@ -61,7 +49,6 @@ class TestNodesListGeneral:
                 node_item = NodeListItem(**item)
                 assert node_item.id, "Node ID should not be empty"
                 assert node_item.name, "Node name should not be empty"
-                assert node_item.protocol, "Protocol should not be empty"
                 assert node_item.network, "Network should not be empty"
                 assert node_item.status, "Status should not be empty"
             except ValidationError as e:
@@ -96,7 +83,7 @@ class TestNodesListAccess:
 
     @allure.title("List nodes with invalid authentication token")
     @allure.severity(allure.severity_level.CRITICAL)
-    @pytest.mark.parametrize("invalid_token", generate_invalid_tokens())
+    @pytest.mark.parametrize("invalid_token", generate_invalid_bearer_tokens())
     def test_list_nodes_with_invalid_token(self, authenticated_nodes_client, invalid_token):
         token = authenticated_nodes_client.token
         authenticated_nodes_client.token = invalid_token

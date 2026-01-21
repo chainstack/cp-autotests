@@ -17,8 +17,8 @@ log.setLevel(logging.INFO)
 
 # Avoid adding multiple handlers if module is reloaded
 if not log.handlers:
-    # File handler
-    file_handler = logging.FileHandler(LOG_FILE, mode='a', encoding='utf-8')
+    # File handler - overwrite on each test run
+    file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
     file_handler.setLevel(logging.INFO)
     file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(file_formatter)

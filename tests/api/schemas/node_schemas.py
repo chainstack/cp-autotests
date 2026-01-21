@@ -5,8 +5,14 @@ from datetime import datetime
 
 
 class ErrorResponse(BaseModel):
-    """Error response schema."""
-    error: str
+    """Error response schema. API returns 'error' or 'msg' depending on error type."""
+    error: Optional[str] = None
+    msg: Optional[str] = None
+    
+    @property
+    def message(self) -> str:
+        """Get error message from either field."""
+        return self.error or self.msg or "Unknown error"
 
 
 class NodeListItem(BaseModel):

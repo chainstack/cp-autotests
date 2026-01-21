@@ -1,7 +1,9 @@
 import pytest
+import time
 from clients.api_client import NodesAPIClient, InternalAPIClient, AuthAPIClient
 from config.settings import Settings
 from faker import Faker
+from control_panel.node import NodeState
 
 @pytest.fixture(scope="session")
 def faker():
@@ -159,33 +161,56 @@ def existing_node_id(authenticated_nodes_client, valid_eth_preset_instance_id):
 
 @pytest.fixture(scope="session")
 def valid_eth_preset_instance_id():
-    """A valid preset instance ID for node creation tests."""
-    # This should match an actual preset in the system
-    # TODO: Update with actual preset ID from the environment
     return "gts.c.cp.presets.blockchain_preset.v1.0~c.cp.presets.evm_preset.v1.0~c.cp.presets.evm_reth_prysm.v1.0~c.cp.presets.ethereum_mainnet.v1.0"
+
+@pytest.fixture(scope="session")
+def invalid_eth_preset_instance_id():
+    return "gts.c.cp.presets.blockchain_preset.v0.0~c.cp.presets.evm_preset.v0.0~c.cp.presets.evm_reth_prysm.v0.0~c.cp.presets.ethereum_mainnet.v0.0"
 
 
 @pytest.fixture(scope="function")
 def cleanup_created_node(authenticated_nodes_client):
-    """Fixture to cleanup nodes created during tests."""
+    """Fixture to cleanup nodes created during tests.""" 
     node_data = {}
     yield node_data
     # Cleanup: schedule delete if node was created
     if "deployment_id" in node_data:
         try:
+            # Wait until node is no longer pending before deleting (max 30 seconds)
+            max_wait = 30
+            waited = 0
+            while waited < max_wait:
+                response = authenticated_nodes_client.get_node(node_data["deployment_id"])
+                if response.status_code == 200:
+                    # API returns 'status' not 'state'
+                    current_status = response.json().get("status")
+                    if current_status != NodeState.PENDING:
+                        break
+                time.sleep(1)
+                waited += 1
+            
             authenticated_nodes_client.schedule_delete_node(node_data["deployment_id"])
         except Exception:
             pass  # Ignore cleanup errors
 
-
 @pytest.fixture(scope="function")
 def created_node_for_deletion(authenticated_nodes_client, valid_eth_preset_instance_id):
     """Create a node specifically for deletion tests."""
-    response = authenticated_nodes_client.create_node(
+    deployment_response = authenticated_nodes_client.create_node(
         preset_instance_id=valid_eth_preset_instance_id
     )
-    if response.status_code == 201:
-        data = response.json()
-        yield {"deployment_id": data["deployment_id"]}
+    if deployment_response.status_code == 201:
+        max_wait = 30
+        waited = 0
+        while waited < max_wait:
+            response = authenticated_nodes_client.get_node(deployment_response.json()["deployment_id"])
+            if response.status_code == 200:
+                current_status = response.json().get("status")
+                if current_status != NodeState.PENDING:
+                    break
+            time.sleep(1)
+            waited += 1
+        # Use deployment_response for deployment_id (get_node returns 'id', not 'deployment_id')
+        yield {"deployment_id": deployment_response.json()["deployment_id"]}
     else:
-        pytest.skip(f"Could not create node for deletion test: {response.status_code}")
+        pytest.skip(f"Could not create node for deletion test: {deployment_response.status_code}")
