@@ -3,17 +3,17 @@ import allure
 import base64
 from pydantic import ValidationError
 from tests.api.schemas.node_schemas import NodeListResponse, NodeListItem, ErrorResponse
-from utils.token_generator import generate_invalid_bearer_tokens
+from utils.token_generator import generate_invalid_bearer_tokens, generate_expired_token
 
 @allure.feature("Nodes")
 @allure.story("List Nodes")
 @pytest.mark.api
 class TestNodesListGeneral:
 
-    @allure.title("List nodes successfully with valid authentication")
+    @allure.title("List nodes successfully with valid authentication and existing node in list")
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.smoke
-    def test_list_nodes_success(self, authenticated_nodes_client):
+    def test_list_nodes_success(self, authenticated_nodes_client, existing_node_id):
         response = authenticated_nodes_client.list_nodes()
         
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
@@ -22,6 +22,8 @@ class TestNodesListGeneral:
             assert isinstance(list_response.results, list), "Results should be a list"
             assert isinstance(list_response.total, int), "Total should be an integer"
             assert list_response.total >= 0, "Total should be non-negative"
+            assert existing_node_id in [node.id for node in list_response.results], \
+                "Existing node should be in the list"
         except ValidationError as e:
             pytest.fail(f"Node list response schema validation failed: {e}")
 
@@ -32,9 +34,8 @@ class TestNodesListGeneral:
         
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
         data = response.json()
-        # Total should match the number of results or indicate pagination
-        assert data.get("total", 0) >= len(data.get("results", [])), \
-            "Total should be >= results count"
+        assert data.get("total", 0) == len(data.get("results", [])), \
+            "Total should be equal to results count"
 
     @allure.title("List nodes validates each node item structure")
     @allure.severity(allure.severity_level.NORMAL)
@@ -87,9 +88,9 @@ class TestNodesListAccess:
     def test_list_nodes_with_invalid_token(self, authenticated_nodes_client, invalid_token):
         token = authenticated_nodes_client.token
         authenticated_nodes_client.token = invalid_token
-        
+    
         response = authenticated_nodes_client.list_nodes()
-        
+    
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
         authenticated_nodes_client.token = token
@@ -99,9 +100,9 @@ class TestNodesListAccess:
     def test_list_nodes_with_wrong_auth_type(self, authenticated_nodes_client):
         token = authenticated_nodes_client.token
         authenticated_nodes_client.token = "Basic " + base64.b64encode(token.encode()).decode()
-        
+    
         response = authenticated_nodes_client.list_nodes()
-        
+    
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
         authenticated_nodes_client.token = token
@@ -110,12 +111,11 @@ class TestNodesListAccess:
     @allure.severity(allure.severity_level.CRITICAL)
     def test_list_nodes_with_expired_token(self, authenticated_nodes_client):
         token = authenticated_nodes_client.token
-        # Expired JWT token (exp claim in the past)
-        expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZXhwIjoxfQ.2H1gL8Yy0N8Zr8VqPy8gQ9Y5HvL7R3z3q2w0u8y111c"
+        expired_token = generate_expired_token()
         authenticated_nodes_client.token = expired_token
-        
+    
         response = authenticated_nodes_client.list_nodes()
-        
+    
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
         authenticated_nodes_client.token = token
@@ -123,11 +123,11 @@ class TestNodesListAccess:
     @allure.title("List nodes with too long token")
     @allure.severity(allure.severity_level.NORMAL)
     def test_list_nodes_with_too_long_token(self, authenticated_nodes_client):
-        headers = authenticated_nodes_client.headers.copy()
-        authenticated_nodes_client.headers["Authorization"] = "Bearer " + "a" * 20480
-        
+        token = authenticated_nodes_client.token
+        authenticated_nodes_client.token = "a" * 20480
+    
         response = authenticated_nodes_client.list_nodes()
-        
-        # Could be 401, 413, or 431 depending on implementation
-        assert response.status_code in [401, 413, 431], f"Expected 401/413/431, got {response.status_code}"
-        authenticated_nodes_client.headers = headers
+    
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        assert "Request Header Or Cookie Too Large" in response.text
+        authenticated_nodes_client.token = token

@@ -3,6 +3,7 @@ import allure
 from typing import Optional, Dict, Any
 from config.settings import Settings
 from utils.http_logger import LogHTTPResponse
+import time
 
 
 class APIClient:
@@ -146,12 +147,16 @@ class NodesAPIClient(APIClient):
             base_url=settings.cp_nodes_api_url,
             token=token or settings.api_token
         )
+        self.nodes_list = []
 
     def create_node(self, preset_instance_id: str, preset_override_values: Optional[Dict[str, Any]] = None) -> httpx.Response:
         payload = {"preset_instance_id": preset_instance_id}
         if preset_override_values:
             payload["preset_override_values"] = preset_override_values
-        return self.post("/v1/ui/nodes", json=payload)
+        response = self.post("/v1/ui/nodes", json=payload)
+        if response.status_code == 201:
+            self.nodes_list.append(response.json()["deployment_id"])
+        return response
 
     def list_nodes(self) -> httpx.Response:
         return self.get("/v1/ui/nodes")
@@ -160,7 +165,23 @@ class NodesAPIClient(APIClient):
         return self.get(f"/v1/ui/nodes/{node_id}")
 
     def schedule_delete_node(self, node_id: str) -> httpx.Response:
-        return self.post(f"/v1/ui/nodes/{node_id}/schedule-delete")
+        response = self.post(f"/v1/ui/nodes/{node_id}/schedule-delete")
+        if response.status_code == 200 and node_id in self.nodes_list:
+            self.nodes_list.remove(node_id)
+        return response
+
+    def _teardown(self):
+        for node_id in self.nodes_list:
+            self.schedule_delete_node(node_id)
+
+    def _wait_node_until_ready(self, node_id: str, timeout: int = 60):
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            response = self.get_node(node_id)
+            if response.json()["status"] != "pending":
+                return
+            time.sleep(1)
+        raise Exception(f"Node {node_id} is not ready after {timeout} seconds")
 
 
 class InternalAPIClient(APIClient):

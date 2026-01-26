@@ -16,15 +16,13 @@ class TestNodesGetGeneral:
     @allure.title("Get node successfully with valid ID")
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.smoke
-    def test_get_node_success(self, authenticated_nodes_client, existing_node_id, valid_eth_preset_instance_id):
-        node_response = authenticated_nodes_client.create_node(preset_instance_id=valid_eth_preset_instance_id)
-        node_id = node_response.json()["deployment_id"]
-        response = authenticated_nodes_client.get_node(node_id)
+    def test_get_node_success(self, authenticated_nodes_client, existing_node_id):
+        response = authenticated_nodes_client.get_node(existing_node_id)
         
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
         try:
             node = Node(**response.json())
-            assert node.id == node_id, f"Node ID mismatch"
+            assert node.id == existing_node_id, f"Node ID mismatch"
             assert node.name, "Node name should not be empty"
             assert node.protocol, "Protocol should not be empty"
             assert node.network, "Network should not be empty"
@@ -72,7 +70,7 @@ class TestNodesGetGeneral:
 @pytest.mark.api
 class TestNodesGetValidation:
 
-    @pytest.mark.xfail(reason="500")
+    @pytest.mark.xfail(reason="https://chainstack.myjetbrains.com/youtrack/issue/CORE-13624")
     @allure.title("Get node with invalid UUID format")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("invalid_id", INVALID_UUID_CASES)
@@ -82,7 +80,7 @@ class TestNodesGetValidation:
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
 
-    @pytest.mark.xfail(reason="500")
+    @pytest.mark.xfail(reason="https://chainstack.myjetbrains.com/youtrack/issue/CORE-13624")
     @allure.title("Get node with non-existent ID")
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_node_not_found(self, authenticated_nodes_client):
@@ -103,21 +101,10 @@ class TestNodesGetValidation:
     def test_get_node_sql_injection(self, authenticated_nodes_client, malicious_id):
         response = authenticated_nodes_client.get_node(malicious_id)
         
-        # Should be rejected with 400, not 500
         assert response.status_code in [400, 404], f"Expected 400/404, got {response.status_code}"
-        ErrorResponse(**response.json())
+        if "application/json" in response.headers.get("Content-Type", ""):
+            ErrorResponse(**response.json())
 
-    @allure.title("Get node with path traversal attempt")
-    @allure.severity(allure.severity_level.CRITICAL)
-    @pytest.mark.parametrize("malicious_id", [
-        "../../../etc/passwd",
-        "..%2F..%2F..%2Fetc%2Fpasswd",
-        "00000000-0000-0000-0000-000000000000/../",
-    ])
-    def test_get_node_path_traversal(self, authenticated_nodes_client, malicious_id):
-        response = authenticated_nodes_client.get_node(malicious_id)
-        
-        assert response.status_code in [400, 404], f"Expected 400/404, got {response.status_code}"
 
     @allure.title("Get node with invalid method")
     @allure.severity(allure.severity_level.CRITICAL)

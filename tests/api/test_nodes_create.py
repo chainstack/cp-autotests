@@ -16,7 +16,7 @@ class TestNodesCreateGeneral:
     @allure.title("Create node successfully with valid preset")
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.smoke
-    def test_create_node_success(self, authenticated_nodes_client, valid_eth_preset_instance_id, cleanup_created_node):
+    def test_create_node_success(self, authenticated_nodes_client, valid_eth_preset_instance_id):
         response = authenticated_nodes_client.create_node(
             preset_instance_id=valid_eth_preset_instance_id
         )
@@ -27,15 +27,13 @@ class TestNodesCreateGeneral:
             assert create_response.deployment_id, "Deployment ID should not be empty"
             assert create_response.initial_revision_id, "Initial revision ID should not be empty"
             assert create_response.state == NodeState.PENDING, "State should be pending"
-            # Store for cleanup
-            cleanup_created_node["deployment_id"] = create_response.deployment_id
         except ValidationError as e:
             pytest.fail(f"Create node response schema validation failed: {e}")
 
     @pytest.mark.xfail(reason="Invalid preset_instance_id should return 400, but returns 500")
     @allure.title("Create node with invalid preset_instance_id")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_create_node_invalid_preset_id(self, authenticated_nodes_client, invalid_eth_preset_instance_id, cleanup_created_node):
+    def test_create_node_invalid_preset_id(self, authenticated_nodes_client, invalid_eth_preset_instance_id):
         response = authenticated_nodes_client.create_node(
             preset_instance_id=invalid_eth_preset_instance_id
         )
@@ -45,7 +43,7 @@ class TestNodesCreateGeneral:
 
     @allure.title("Create node with override values")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_create_node_with_overrides(self, authenticated_nodes_client, valid_eth_preset_instance_id, cleanup_created_node):
+    def test_create_node_with_overrides(self, authenticated_nodes_client, valid_eth_preset_instance_id):
         override_values = {"custom_key": "custom_value"}
         response = authenticated_nodes_client.create_node(
             preset_instance_id=valid_eth_preset_instance_id,
@@ -54,11 +52,10 @@ class TestNodesCreateGeneral:
         
         assert response.status_code == 201, f"Expected 201, got {response.status_code}"
         create_response = CreateNodeResponse(**response.json())
-        cleanup_created_node["deployment_id"] = create_response.deployment_id
 
     @allure.title("Create node with nested override values")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_create_node_with_nested_overrides(self, authenticated_nodes_client, valid_eth_preset_instance_id, cleanup_created_node):
+    def test_create_node_with_nested_overrides(self, authenticated_nodes_client, valid_eth_preset_instance_id):
         override_values = {
             "config": {
                 "setting_a": "value_a",
@@ -72,11 +69,10 @@ class TestNodesCreateGeneral:
         
         assert response.status_code == 201, f"Expected 201, got {response.status_code}"
         create_response = CreateNodeResponse(**response.json())
-        cleanup_created_node["deployment_id"] = create_response.deployment_id
 
     @allure.title("Create node check response headers")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_create_node_check_response_headers(self, authenticated_nodes_client, valid_eth_preset_instance_id, cleanup_created_node):
+    def test_create_node_check_response_headers(self, authenticated_nodes_client, valid_eth_preset_instance_id):
         response = authenticated_nodes_client.create_node(
             preset_instance_id=valid_eth_preset_instance_id
         )
@@ -84,7 +80,6 @@ class TestNodesCreateGeneral:
         assert response.status_code == 201, f"Expected 201, got {response.status_code}"
         assert "application/json" in response.headers.get("Content-Type", ""), \
             "Content-Type should be application/json"
-        cleanup_created_node["deployment_id"] = response.json().get("deployment_id")
 
 
 @allure.feature("Nodes")

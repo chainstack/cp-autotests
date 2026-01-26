@@ -22,14 +22,6 @@ def internal_api_client(config: Settings):
     yield client
     client.close()
 
-
-@pytest.fixture(scope="session")
-def authenticated_nodes_client(config: Settings):
-    client = NodesAPIClient(config)
-    yield client
-    client.close()
-
-
 @pytest.fixture(scope="function")
 def auth_client(config: Settings):
     client = AuthAPIClient(config)
@@ -131,9 +123,8 @@ def password_reset_teardown(config: Settings):
 
 # Node-specific fixtures
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def authenticated_nodes_client(config: Settings):
-    from clients.api_client import AuthAPIClient, NodesAPIClient
     
     auth_client = AuthAPIClient(config)
     response = auth_client.login(config.admin_log, config.admin_pass)
@@ -142,7 +133,7 @@ def authenticated_nodes_client(config: Settings):
         token = response.json().get("access_token")
         client = NodesAPIClient(config, token=token)
         yield client
-        client.close()
+        client._teardown()
     else:
         raise Exception(f"Failed to authenticate for nodes client: {response.status_code}")
     auth_client.close()
@@ -150,13 +141,11 @@ def authenticated_nodes_client(config: Settings):
 
 @pytest.fixture(scope="function")
 def existing_node_id(authenticated_nodes_client, valid_eth_preset_instance_id):
-    response = authenticated_nodes_client.list_nodes()
-    if response.status_code == 200:
-        nodes = response.json().get("results", [])
-        if nodes:
-            return nodes[0]["id"]
-        return authenticated_nodes_client.create_node(preset_instance_id=valid_eth_preset_instance_id).json()["id"]
-    raise Exception("Failed to get existing node ID")
+    if authenticated_nodes_client.nodes_list:
+        return authenticated_nodes_client.nodes_list[0]
+    node_id = authenticated_nodes_client.create_node(preset_instance_id=valid_eth_preset_instance_id).json()["deployment_id"]
+    authenticated_nodes_client._wait_node_until_ready(node_id)
+    return node_id
 
 
 @pytest.fixture(scope="session")
@@ -167,31 +156,6 @@ def valid_eth_preset_instance_id():
 def invalid_eth_preset_instance_id():
     return "gts.c.cp.presets.blockchain_preset.v0.0~c.cp.presets.evm_preset.v0.0~c.cp.presets.evm_reth_prysm.v0.0~c.cp.presets.ethereum_mainnet.v0.0"
 
-
-@pytest.fixture(scope="function")
-def cleanup_created_node(authenticated_nodes_client):
-    """Fixture to cleanup nodes created during tests.""" 
-    node_data = {}
-    yield node_data
-    # Cleanup: schedule delete if node was created
-    if "deployment_id" in node_data:
-        try:
-            # Wait until node is no longer pending before deleting (max 30 seconds)
-            max_wait = 30
-            waited = 0
-            while waited < max_wait:
-                response = authenticated_nodes_client.get_node(node_data["deployment_id"])
-                if response.status_code == 200:
-                    # API returns 'status' not 'state'
-                    current_status = response.json().get("status")
-                    if current_status != NodeState.PENDING:
-                        break
-                time.sleep(1)
-                waited += 1
-            
-            authenticated_nodes_client.schedule_delete_node(node_data["deployment_id"])
-        except Exception:
-            pass  # Ignore cleanup errors
 
 @pytest.fixture(scope="function")
 def created_node_for_deletion(authenticated_nodes_client, valid_eth_preset_instance_id):
