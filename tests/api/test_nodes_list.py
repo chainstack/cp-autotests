@@ -98,14 +98,14 @@ class TestNodesListAccess:
     @allure.title("List nodes with wrong auth type (Basic instead of Bearer)")
     @allure.severity(allure.severity_level.CRITICAL)
     def test_list_nodes_with_wrong_auth_type(self, authenticated_nodes_client):
-        token = authenticated_nodes_client.token
-        authenticated_nodes_client.token = "Basic " + base64.b64encode(token.encode()).decode()
+        headers = authenticated_nodes_client.headers.copy()
+        authenticated_nodes_client.headers = {"Authorization": "Basic " + base64.b64encode(headers["Authorization"].encode()).decode()}
     
         response = authenticated_nodes_client.list_nodes()
     
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
-        authenticated_nodes_client.token = token
+        authenticated_nodes_client.headers = headers
 
     @allure.title("List nodes with too long token")
     @allure.severity(allure.severity_level.NORMAL)

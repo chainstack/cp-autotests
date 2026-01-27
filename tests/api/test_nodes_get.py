@@ -166,7 +166,7 @@ class TestNodesGetValidation:
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.parametrize("method", ["POST", "PUT", "PATCH", "DELETE"])
     def test_get_node_invalid_method(self, authenticated_nodes_client, existing_node_id, method):
-        response = authenticated_nodes_client.send_custom_request(endpoint=f"/nodes/{existing_node_id}", method=method)
+        response = authenticated_nodes_client.send_custom_request(endpoint=f"/nodes/v1/ui/{existing_node_id}", method=method)
         
         assert response.status_code == 405, f"Expected 405, got {response.status_code}"
 
