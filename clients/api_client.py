@@ -173,7 +173,7 @@ class NodesAPIClient(APIClient):
         return response
 
     def _teardown(self):
-        for node_id in self.nodes_list:
+        for node_id in list(self.nodes_list):  # Iterate over copy
             self.schedule_delete_node(node_id)
 
     def _wait_node_until_status(self, node_id: str, expected_status: NodeState, timeout: int = 60):
