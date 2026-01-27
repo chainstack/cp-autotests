@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from tests.api.schemas.auth_schemas import UserProfile, ErrorResponse
 from tests.api.cases.test_cases import EMPTY_STRING_CASES, NONSTRING_CASES
 import base64
-from utils.token_generator import generate_invalid_bearer_tokens
+from utils.token_generator import generate_invalid_bearer_tokens, generate_expired_token
 
 
 @allure.feature("Authentication")
@@ -178,12 +178,11 @@ class TestUsernameChangeAccess:
         ErrorResponse(**response.json())
         authenticated_auth_client.token = token
 
-    #TODO add expired token generation
     @allure.title("Change username fails with expired access token")
     @allure.severity(allure.severity_level.NORMAL)
     def test_change_username_expired_token(self, authenticated_auth_client, valid_username):
         token = authenticated_auth_client.token
-        expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj0vVzr7B8Y8P9nGJ5pZXkJZ5JZ5JZ5JZ5JZ5JZ5"
+        expired_token = generate_expired_token()
         authenticated_auth_client.token = expired_token
         
         response = authenticated_auth_client.change_username(valid_username)

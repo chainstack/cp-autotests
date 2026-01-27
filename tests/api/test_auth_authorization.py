@@ -1,6 +1,6 @@
 import pytest
 import allure
-from utils.token_generator import generate_invalid_bearer_tokens
+from utils.token_generator import generate_invalid_bearer_tokens, generate_expired_token
 
 
 @allure.feature("Authentication")
@@ -39,11 +39,10 @@ class TestAuthorization:
             assert response.status_code == 401, \
                 f"Invalid token should return 401, got {response.status_code}"
 
-    # TODO: Generate expired token
     @allure.title("Expired token returns 401")
     @allure.severity(allure.severity_level.CRITICAL)
     def test_expired_token_rejected(self, auth_client):
-        expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj0vVzr7B8Y8P9nGJ5pZXkJZ5JZ5JZ5JZ5JZ5JZ5"
+        expired_token = generate_expired_token()
         
         auth_client.token = expired_token
         response = auth_client.get_profile()
