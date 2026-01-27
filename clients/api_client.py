@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from config.settings import Settings
 from utils.http_logger import LogHTTPResponse
 import time
+from control_panel.node import NodeState
 
 
 class APIClient:
@@ -165,23 +166,24 @@ class NodesAPIClient(APIClient):
         return self.get(f"/v1/ui/nodes/{node_id}")
 
     def schedule_delete_node(self, node_id: str) -> httpx.Response:
+        operational_node_id = node_id.lower()
         response = self.post(f"/v1/ui/nodes/{node_id}/schedule-delete")
-        if response.status_code == 200 and node_id in self.nodes_list:
-            self.nodes_list.remove(node_id)
+        if response.status_code == 200 and operational_node_id in self.nodes_list:
+            self.nodes_list.remove(operational_node_id)
         return response
 
     def _teardown(self):
         for node_id in self.nodes_list:
             self.schedule_delete_node(node_id)
 
-    def _wait_node_until_ready(self, node_id: str, timeout: int = 60):
+    def _wait_node_until_status(self, node_id: str, expected_status: NodeState, timeout: int = 60):
         start_time = time.time()
         while time.time() - start_time < timeout:
             response = self.get_node(node_id)
-            if response.json()["status"] != "pending":
+            if response.json()["status"] == expected_status:
                 return
             time.sleep(1)
-        raise Exception(f"Node {node_id} is not ready after {timeout} seconds")
+        raise Exception(f"Node {node_id} is not {expected_status} after {timeout} seconds")
 
 
 class InternalAPIClient(APIClient):

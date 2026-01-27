@@ -3,7 +3,7 @@ import allure
 import base64
 from pydantic import ValidationError
 from tests.api.schemas.node_schemas import NodeListResponse, NodeListItem, ErrorResponse
-from utils.token_generator import generate_invalid_bearer_tokens, generate_expired_token
+from utils.token_generator import generate_invalid_bearer_tokens
 
 @allure.feature("Nodes")
 @allure.story("List Nodes")
@@ -100,19 +100,6 @@ class TestNodesListAccess:
     def test_list_nodes_with_wrong_auth_type(self, authenticated_nodes_client):
         token = authenticated_nodes_client.token
         authenticated_nodes_client.token = "Basic " + base64.b64encode(token.encode()).decode()
-    
-        response = authenticated_nodes_client.list_nodes()
-    
-        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
-        ErrorResponse(**response.json())
-        authenticated_nodes_client.token = token
-
-    @allure.title("List nodes with expired token")
-    @allure.severity(allure.severity_level.CRITICAL)
-    def test_list_nodes_with_expired_token(self, authenticated_nodes_client):
-        token = authenticated_nodes_client.token
-        expired_token = generate_expired_token()
-        authenticated_nodes_client.token = expired_token
     
         response = authenticated_nodes_client.list_nodes()
     

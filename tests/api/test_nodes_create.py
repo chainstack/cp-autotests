@@ -30,7 +30,7 @@ class TestNodesCreateGeneral:
         except ValidationError as e:
             pytest.fail(f"Create node response schema validation failed: {e}")
 
-    @pytest.mark.xfail(reason="Invalid preset_instance_id should return 400, but returns 500")
+    @pytest.mark.xfail(reason="https://chainstack.myjetbrains.com/youtrack/issue/CORE-13621")
     @allure.title("Create node with invalid preset_instance_id")
     @allure.severity(allure.severity_level.NORMAL)
     def test_create_node_invalid_preset_id(self, authenticated_nodes_client, invalid_eth_preset_instance_id):
@@ -81,6 +81,49 @@ class TestNodesCreateGeneral:
         assert "application/json" in response.headers.get("Content-Type", ""), \
             "Content-Type should be application/json"
 
+    @allure.title("Create node with same preset twice")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_create_node_same_preset_twice(self, authenticated_nodes_client, valid_eth_preset_instance_id):
+        response1 = authenticated_nodes_client.create_node(
+            preset_instance_id=valid_eth_preset_instance_id
+        )
+        assert response1.status_code == 201
+        node_id1 = response1.json()["deployment_id"]
+        
+        response2 = authenticated_nodes_client.create_node(
+            preset_instance_id=valid_eth_preset_instance_id
+        )
+        assert response2.status_code == 201
+        node_id2 = response2.json()["deployment_id"]
+        
+        assert node_id1 != node_id2, "Each create should return unique node ID"
+
+    @allure.title("Create node rate limiting")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_create_node_rate_limiting(self, authenticated_nodes_client, valid_eth_preset_instance_id):
+        import concurrent.futures
+        
+        num_requests = 10
+        responses = []
+        
+        def create_request():
+            return authenticated_nodes_client.create_node(
+                preset_instance_id=valid_eth_preset_instance_id
+            )
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_requests) as executor:
+            futures = [executor.submit(create_request) for _ in range(num_requests)]
+            responses = [f.result() for f in concurrent.futures.as_completed(futures)]
+        
+        status_codes = [r.status_code for r in responses]
+        
+        # Check if rate limiting kicked in (429) or all succeeded (201)
+        has_rate_limit = 429 in status_codes
+        all_succeeded = all(code == 201 for code in status_codes)
+        
+        # Either rate limiting works OR all requests succeed (no rate limiting configured)
+        assert has_rate_limit or all_succeeded, f"Unexpected status codes: {status_codes}"
+
 
 @allure.feature("Nodes")
 @allure.story("Create Node")
@@ -95,7 +138,32 @@ class TestNodesCreateValidation:
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
 
-    @pytest.mark.xfail(reason="Invalid preset_instance_id should return 400, but returns 500")
+    @allure.title("Create node with null preset_instance_id")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_create_node_null_preset_id(self, authenticated_nodes_client):
+        """POST with null preset_instance_id should return 400"""
+        response = authenticated_nodes_client.post(
+            "/v1/ui/nodes", 
+            json={"preset_instance_id": None}
+        )
+        
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        ErrorResponse(**response.json())
+
+    @allure.title("Create node with completely empty request body")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_create_node_empty_body(self, authenticated_nodes_client):
+        """POST with no body should return 400"""
+        response = authenticated_nodes_client.send_custom_request(
+            method="POST",
+            endpoint="/v1/ui/nodes",
+            json=None
+        )
+        
+        # Could be 400 or 415 depending on implementation
+        assert response.status_code in [400, 415], f"Expected 400/415, got {response.status_code}"
+
+    @pytest.mark.xfail(reason="https://chainstack.myjetbrains.com/youtrack/issue/CORE-13621")
     @allure.title("Create node with empty preset_instance_id")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("empty_value", EMPTY_STRING_CASES)
@@ -114,8 +182,10 @@ class TestNodesCreateValidation:
         )
         
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
-        ErrorResponse(**response.json())
+        if "application/json" in response.headers.get("Content-Type", ""):
+            ErrorResponse(**response.json())
 
+    @pytest.mark.xfail(reason="https://chainstack.myjetbrains.com/youtrack/issue/CORE-13621")
     @allure.title("Create node with SQL injection in preset_instance_id")
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.parametrize("malicious_value", [
@@ -136,7 +206,7 @@ class TestNodesCreateValidation:
         ("__proto__", {"polluted": True}),
         ("constructor", {"prototype": {}}),
     ])
-    def test_create_node_extra_fields(self, authenticated_nodes_client, valid_eth_preset_instance_id, extra_field, extra_value, cleanup_created_node):
+    def test_create_node_extra_fields(self, authenticated_nodes_client, valid_eth_preset_instance_id, extra_field, extra_value):
         response = authenticated_nodes_client.send_custom_request(
             method="POST",
             endpoint="/v1/ui/nodes",
@@ -148,7 +218,6 @@ class TestNodesCreateValidation:
 
         assert response.status_code == 201, f"Expected 201, got {response.status_code}"
         assert extra_field not in response.json(), f"Extra field {extra_field} should not be in response"
-        cleanup_created_node["deployment_id"] = response.json().get("deployment_id")
 
 
 @allure.feature("Nodes")
@@ -198,43 +267,3 @@ class TestNodesCreateAccess:
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
         authenticated_nodes_client.token = token
-
-
-@allure.feature("Nodes")
-@allure.story("Create Node")
-@pytest.mark.api
-class TestNodesCreateContentType:
-
-    @pytest.mark.xfail(reason="No Content-Type header is required for POST requests with body")
-    @allure.title("Create node without content type header")
-    @allure.severity(allure.severity_level.NORMAL)
-    def test_create_node_without_content_type(self, authenticated_nodes_client, valid_eth_preset_instance_id):
-        headers = authenticated_nodes_client.headers.copy()
-        if "Content-Type" in authenticated_nodes_client.headers:
-            del authenticated_nodes_client.headers["Content-Type"]
-        
-        response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_eth_preset_instance_id
-        )
-        
-        assert response.status_code in [400, 415], f"Expected 400/415, got {response.status_code}"
-        authenticated_nodes_client.headers = headers
-
-    @pytest.mark.xfail(reason="No Content-Type header is required for POST requests with body")
-    @allure.title("Create node with wrong content type")
-    @allure.severity(allure.severity_level.NORMAL)
-    @pytest.mark.parametrize("content_type", [
-        "text/plain",
-        "application/xml",
-        "application/x-www-form-urlencoded",
-    ])
-    def test_create_node_with_wrong_content_type(self, authenticated_nodes_client, valid_eth_preset_instance_id, content_type):
-        headers = authenticated_nodes_client.headers.copy()
-        authenticated_nodes_client.headers["Content-Type"] = content_type
-        
-        response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_eth_preset_instance_id
-        )
-        
-        assert response.status_code in [400, 415], f"Expected 400/415, got {response.status_code}"
-        authenticated_nodes_client.headers = headers

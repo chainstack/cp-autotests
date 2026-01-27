@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from tests.api.schemas.node_schemas import Node, ErrorResponse
 from utils.token_generator import generate_invalid_bearer_tokens
 from tests.api.cases.test_cases import INVALID_UUID_CASES
+from uuid import uuid4
 
 
 
@@ -64,11 +65,66 @@ class TestNodesGetGeneral:
         assert "application/json" in response.headers.get("Content-Type", ""), \
             "Content-Type should be application/json"
 
+    @allure.title("Get node during pending state")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_node_pending_state(self, authenticated_nodes_client, valid_eth_preset_instance_id):
+        create_response = authenticated_nodes_client.create_node(
+            preset_instance_id=valid_eth_preset_instance_id
+        )
+        assert create_response.status_code == 201
+        node_id = create_response.json()["deployment_id"]
+        
+        response = authenticated_nodes_client.get_node(node_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.json()["status"] == "pending", "Node should be pending"
+        assert response.json()["id"] == node_id
+
+    @allure.title("Get recently deleted node")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_deleted_node(self, authenticated_nodes_client, valid_eth_preset_instance_id):
+        from control_panel.node import NodeState
+        
+        create_response = authenticated_nodes_client.create_node(
+            preset_instance_id=valid_eth_preset_instance_id
+        )
+        assert create_response.status_code == 201
+        node_id = create_response.json()["deployment_id"]
+        
+        authenticated_nodes_client._wait_node_until_status(node_id, NodeState.RUNNING)
+        authenticated_nodes_client.schedule_delete_node(node_id)
+        authenticated_nodes_client._wait_node_until_status(node_id, NodeState.DELETED)
+        
+        response = authenticated_nodes_client.get_node(node_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.json()["status"] == NodeState.DELETED
+
 
 @allure.feature("Nodes")
 @allure.story("Get Node")
 @pytest.mark.api
 class TestNodesGetValidation:
+
+    @allure.title("Get node with uppercase UUID")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_node_uppercase_uuid(self, authenticated_nodes_client, existing_node_id):
+        uppercase_id = existing_node_id.upper()
+        
+        response = authenticated_nodes_client.get_node(uppercase_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.json()["id"].lower() == existing_node_id.lower()
+
+    @allure.title("Get node with mixed case UUID")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_node_mixed_case_uuid(self, authenticated_nodes_client, existing_node_id):
+        mid = len(existing_node_id) // 2
+        mixed_id = existing_node_id[:mid].upper() + existing_node_id[mid:].lower()
+        
+        response = authenticated_nodes_client.get_node(mixed_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
 
     @pytest.mark.xfail(reason="https://chainstack.myjetbrains.com/youtrack/issue/CORE-13624")
     @allure.title("Get node with invalid UUID format")
@@ -84,7 +140,7 @@ class TestNodesGetValidation:
     @allure.title("Get node with non-existent ID")
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_node_not_found(self, authenticated_nodes_client):
-        non_existent_id = "00000000-0000-0000-0000-000000000000"
+        non_existent_id = str(uuid4())
         response = authenticated_nodes_client.get_node(non_existent_id)
         
         assert response.status_code == 404, f"Expected 404, got {response.status_code}"

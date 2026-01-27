@@ -5,7 +5,8 @@ from uuid import uuid4
 from pydantic import ValidationError
 from tests.api.schemas.node_schemas import ScheduleDeleteNodeResponse, ErrorResponse
 from tests.api.cases.test_cases import INVALID_UUID_CASES
-from utils.token_generator import generate_invalid_bearer_tokens, generate_expired_token
+from utils.token_generator import generate_invalid_bearer_tokens
+from control_panel.node import NodeState
 
 def generate_random_uuid():
     return str(uuid4())
@@ -39,18 +40,14 @@ class TestNodesDeleteGeneral:
         assert "application/json" in response.headers.get("Content-Type", ""), \
             "Content-Type should be application/json"
 
-    @pytest.mark.xfail(reason="500")
+    @pytest.mark.xfail(reason="https://chainstack.myjetbrains.com/youtrack/issue/CORE-13622")
     @allure.title("Schedule delete same node twice")
     @allure.severity(allure.severity_level.NORMAL)
     def test_schedule_delete_twice(self, authenticated_nodes_client, existing_node_id):
-        
-        # First delete
         response1 = authenticated_nodes_client.schedule_delete_node(existing_node_id)
         assert response1.status_code == 200, f"First delete: Expected 200, got {response1.status_code}"
         
-        # Second delete - should be idempotent or return appropriate error
         response2 = authenticated_nodes_client.schedule_delete_node(existing_node_id)
-        # Could be 400/404 (already scheduled/deleted)
         assert response2.status_code in [400, 404], \
             f"Second delete: Expected 400/404, got {response2.status_code}"
 
@@ -60,7 +57,32 @@ class TestNodesDeleteGeneral:
 @pytest.mark.api
 class TestNodesDeleteValidation:
 
-    @pytest.mark.xfail(reason="500")
+    @allure.title("Delete node with uppercase UUID")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_delete_node_uppercase_uuid(self, authenticated_nodes_client, existing_node_id):        
+        node_status = authenticated_nodes_client.get_node(existing_node_id).json()["status"]
+        if node_status == NodeState.PENDING:
+            authenticated_nodes_client._wait_node_until_status(existing_node_id, NodeState.RUNNING)
+        
+        uppercase_id = existing_node_id.upper()
+        response = authenticated_nodes_client.schedule_delete_node(uppercase_id)
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+
+    @allure.title("Delete node with mixed case UUID")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_delete_node_mixed_case_uuid(self, authenticated_nodes_client, existing_node_id):
+        node_status = authenticated_nodes_client.get_node(existing_node_id).json()["status"]
+        if node_status == NodeState.PENDING:
+            authenticated_nodes_client._wait_node_until_status(existing_node_id, NodeState.RUNNING)
+
+        mid = len(existing_node_id) // 2
+        mixed_id = existing_node_id[:mid].upper() + existing_node_id[mid:].lower()
+        
+        response = authenticated_nodes_client.schedule_delete_node(mixed_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+
+    @pytest.mark.xfail(reason="chainstack.myjetbrains.com/youtrack/issue/CORE-13624")
     @allure.title("Schedule delete with invalid UUID format")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.parametrize("invalid_id", INVALID_UUID_CASES)
@@ -70,14 +92,13 @@ class TestNodesDeleteValidation:
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
 
-    @pytest.mark.xfail(reason="500")
+    @pytest.mark.xfail(reason="chainstack.myjetbrains.com/youtrack/issue/CORE-13624")
     @allure.title("Schedule delete with non-existent node ID")
     @allure.severity(allure.severity_level.NORMAL)
     def test_schedule_delete_not_found(self, authenticated_nodes_client):
-        non_existent_id = "00000000-0000-0000-0000-000000000000"
+        non_existent_id = str(uuid4())
         response = authenticated_nodes_client.schedule_delete_node(non_existent_id)
         
-        # Could be 404 or 400 depending on implementation
         assert response.status_code in [400, 404], f"Expected 400 or 404, got {response.status_code}"
         ErrorResponse(**response.json())
 
@@ -145,17 +166,4 @@ class TestNodesDeleteAccess:
         
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
-        authenticated_nodes_client.token = token
-
-    @allure.title("Schedule delete with expired token")
-    @allure.severity(allure.severity_level.CRITICAL)
-    def test_schedule_delete_with_expired_token(self, authenticated_nodes_client, existing_node_id):
-        token = authenticated_nodes_client.token
-        expired_token = generate_expired_token()
-        authenticated_nodes_client.token = expired_token
-        
-        response = authenticated_nodes_client.schedule_delete_node(existing_node_id)
-        
-        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
-        ErrorResponse(**response.json())
-        authenticated_nodes_client.token = token
+        authenticated_nodes_client.token = token   

@@ -144,7 +144,7 @@ def existing_node_id(authenticated_nodes_client, valid_eth_preset_instance_id):
     if authenticated_nodes_client.nodes_list:
         return authenticated_nodes_client.nodes_list[0]
     node_id = authenticated_nodes_client.create_node(preset_instance_id=valid_eth_preset_instance_id).json()["deployment_id"]
-    authenticated_nodes_client._wait_node_until_ready(node_id)
+    authenticated_nodes_client._wait_node_until_status(node_id, NodeState.RUNNING)
     return node_id
 
 
