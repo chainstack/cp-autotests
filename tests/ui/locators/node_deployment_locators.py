@@ -101,16 +101,28 @@ class NodeDeploymentLocators(BaseLocators):
     # Nodes list page
     NODES_LIST_PAGE = ".nodes-list-page"
     NODES_LIST_HEADER = ".nodes-list-header"
-    NODE_ITEM = ".node-item"
-    NODE_ITEM_TITLE = ".node-item-title"
+    NODES_LIST_BODY = ".nodes-list-body"
+    NODES_LIST_ROW = ".nodes-list-row"
     NODE_STATUS_DROPDOWN = ".nodes-status-dropdown"
     STATUS_DROPDOWN_OPTION = ".nodes-status-option"
     ADD_NODE_BUTTON = "button:has-text('+ Add node')"
+    
+    # Node list row cells
+    NODE_LIST_NAME = ".nodes-list-node-name"
+    NODE_LIST_NETWORK = ".nodes-list-network-sub"
+    NODE_LIST_CREATED_AT = ".nodes-list-cell:nth-child(3)"
+    NODE_LIST_UPDATED_AT = ".nodes-list-cell:nth-child(4)"
+    NODE_LIST_STATUS = ".nodes-list-status-label"
 
     @staticmethod
     def node_by_name(name: str) -> str:
         """Get node item by name using text search in list body."""
         return f".nodes-list-body >> text='{name}'"
+    
+    @staticmethod
+    def node_row_by_name(name: str) -> str:
+        """Get node list row by name."""
+        return f".nodes-list-row:has(.nodes-list-node-name:text('{name}'))"
     
     @staticmethod
     def dropdown_option_by_name(name: str) -> str:

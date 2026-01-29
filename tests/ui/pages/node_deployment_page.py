@@ -280,3 +280,70 @@ class NodeDeploymentPage(BasePage):
         """Extract node name from the page title."""
         title = self.get_text(self.locators.NODE_DETAILS_TITLE)
         return title.strip()
+
+    @allure.step("Get node ID from URL")
+    def get_node_id_from_url(self) -> str:
+        """Extract node ID from the current page URL (e.g., /nodes/{node_id})."""
+        url = self.page.url
+        match = re.search(r'/nodes/([a-f0-9-]{36})', url)
+        if match:
+            return match.group(1)
+        raise ValueError(f"Could not extract node ID from URL: {url}")
+
+    @allure.step("Get node info from list: {node_name}")
+    def get_node_list_info(self, node_name: str) -> dict:
+        """Extract node info from a row in the nodes list."""
+        row = self.page.locator(self.locators.node_row_by_name(node_name))
+        
+        return {
+            "name": row.locator(self.locators.NODE_LIST_NAME).text_content().strip(),
+            "network": row.locator(self.locators.NODE_LIST_NETWORK).text_content().strip(),
+            "created_at": row.locator(self.locators.NODE_LIST_CREATED_AT).text_content().strip(),
+            "updated_at": row.locator(self.locators.NODE_LIST_UPDATED_AT).text_content().strip(),
+            "status": row.locator(self.locators.NODE_LIST_STATUS).text_content().strip(),
+        }
+
+    @allure.step("Verify node info in list")
+    def verify_node_list_info(self, node_name: str, api_client=None, node_id: str = None):
+        """
+        Verify node info in the nodes list matches API data.
+        
+        Args:
+            node_name: Node name to find in list
+            api_client: Optional API client instance. If provided with node_id,
+                       compares UI data with API response.
+            node_id: Optional node ID to fetch from API for comparison.
+        """
+        ui_data = self.get_node_list_info(node_name)
+        
+        if api_client and node_id:
+            api_response = api_client.get_node(node_id)
+            assert api_response.status_code == 200, f"Failed to get node from API: {api_response.status_code}"
+            api_data = api_response.json()
+            
+            assert ui_data["name"] == api_data["name"], \
+                f"Name mismatch: API='{api_data['name']}', UI='{ui_data['name']}'"
+            
+            assert api_data["network"] in ui_data["network"], \
+                f"Network mismatch: API='{api_data['network']}', UI='{ui_data['network']}'"
+            
+            assert ui_data["status"].lower() == api_data["status"].lower(), \
+                f"Status mismatch: API='{api_data['status']}', UI='{ui_data['status']}'"
+            
+            assert ui_data["created_at"] == api_data["created_at"], f"Created at should not be empty"
+            assert ui_data["updated_at"] == api_data["updated_at"], f"Updated at should not be empty"
+            
+            allure.attach(
+                str(api_data),
+                "API Data",
+                allure.attachment_type.JSON
+            )
+            allure.attach(
+                str(ui_data),
+                "UI Data",
+                allure.attachment_type.JSON
+            )
+        else:
+            assert ui_data["name"] == node_name, f"Expected name '{node_name}', got '{ui_data['name']}'"
+            assert ui_data["created_at"], "Created at should not be empty"
+            assert ui_data["updated_at"], "Updated at should not be empty"

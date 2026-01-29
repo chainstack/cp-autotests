@@ -21,7 +21,7 @@ class TestNodeDeploymentE2E:
         ("Ethereum Mainnet Reth Prysm", "Ethereum Mainnet Reth Prysm Nano"),
         ("Ethereum Hoodi Reth Prysm", "Ethereum Hoodi Reth Prysm Nano"),
     ])
-    def test_complete_node_deployment_flow(self, page: Page, base_url: str, config, protocol_name: str, config_name: str):
+    def test_complete_node_deployment_flow(self, page: Page, base_url: str, config, nodes_api_client, protocol_name: str, config_name: str):
         
         with allure.step("Login to the application"):
             login_page = LoginPage(page, base_url)
@@ -75,7 +75,9 @@ class TestNodeDeploymentE2E:
         with allure.step("Verify node overview page loaded"):
             deployment_page.wait_for_node_creation(timeout=NODE_STATUS_MAX_WAIT)
             deployment_page.verify_overview_page_loaded()
-            deployment_page.verify_node_info_card()
+            node_name = deployment_page.get_node_name_from_title()
+            node_id = deployment_page.get_node_id_from_url()
+            deployment_page.verify_node_info_card(api_client=nodes_api_client, node_id=node_id)
 
         with allure.step("Verify node status shows Bootstrapping"):
             deployment_page.verify_node_status("Bootstrapping")
@@ -84,12 +86,17 @@ class TestNodeDeploymentE2E:
             deployment_page.wait_for_particular_status("Running", timeout=NODE_STATUS_MAX_WAIT)
             deployment_page.verify_node_status("Running")
         
-        node_name = deployment_page.get_node_name_from_title()
-        
         with allure.step("Navigate to nodes list and verify deployed node is present"):
             nodes_page.open()
             nodes_page.verify_page_loaded()
             deployment_page.verify_node_in_list(node_name)
+        
+        with allure.step("Verify node info in list matches API data"):
+            deployment_page.verify_node_list_info(
+                node_name=node_name,
+                api_client=nodes_api_client,
+                node_id=node_id
+            )
         
         with allure.step("Click on deployed node to open details"):
             deployment_page.click_node_in_list(node_name)
