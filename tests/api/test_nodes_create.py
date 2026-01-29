@@ -4,8 +4,17 @@ import base64
 from pydantic import ValidationError
 from tests.api.schemas.node_schemas import CreateNodeResponse, ErrorResponse
 from tests.api.cases.test_cases import EMPTY_STRING_CASES, NONSTRING_CASES
-from control_panel.node import NodeState
+from control_panel.node import NodeState, NodePreset
 from utils.token_generator import generate_invalid_bearer_tokens
+
+def get_non_eth_preset_instant_ids():
+    return [
+        "gts.c.cp.presets.blockchain_preset.v1.0~c.cp.presets.bitcoin_preset.v1.0~c.cp.presets.bitcoin_core.v1.0~c.cp.presets.bitcoin_mainnet.v1.0",
+        "gts.c.cp.presets.blockchain_preset.v1.0~c.cp.presets.evm_preset.v1.0~c.cp.presets.evm_bsc_geth.v1.0~c.cp.presets.bsc_mainnet.v1.0",
+        "gts.c.cp.presets.blockchain_preset.v1.0~c.cp.presets.evm_preset.v1.0~c.cp.presets.evm_bor_heimdall.v1.0~c.cp.presets.polygon_mainnet.v1.0",
+        "gts.c.cp.presets.blockchain_preset.v1.0~c.cp.presets.evm_preset.v1.0~c.cp.presets.evm_avalanchego.v1.0~c.cp.presets.avalanche_mainnet.v1.0",
+        "gts.c.cp.presets.blockchain_preset.v1.0~c.cp.presets.evm_preset.v1.0~c.cp.presets.evm_nethermind_lighthouse.v1.0~c.cp.presets.gnosis_mainnet.v1.0",
+    ]
 
 
 @allure.feature("Nodes")
@@ -16,9 +25,10 @@ class TestNodesCreateGeneral:
     @allure.title("Create node successfully with valid preset")
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.smoke
-    def test_create_node_success(self, authenticated_nodes_client, valid_eth_preset_instance_id):
+    @pytest.mark.parametrize("preset", [NodePreset.ETH_HOODIE, NodePreset.ETH_SEPOLIA, NodePreset.ETH_MAINNET])
+    def test_create_node_success(self, authenticated_nodes_client, preset):
         response = authenticated_nodes_client.create_node(
-            preset_instance_id=valid_eth_preset_instance_id
+            preset_instance_id=preset
         )
         
         assert response.status_code == 201, f"Expected 201, got {response.status_code}"
@@ -40,6 +50,21 @@ class TestNodesCreateGeneral:
         
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
         ErrorResponse(**response.json())
+
+    @pytest.mark.xfail(reason="https://chainstack.myjetbrains.com/youtrack/issue/CORE-13621")
+    @allure.title("Create node with non-eth preset")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("preset", get_non_eth_preset_instant_ids())
+    def test_create_node_non_eth_preset(self, authenticated_nodes_client, preset):
+        response = authenticated_nodes_client.create_node(
+            preset_instance_id=preset
+        )
+        
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        try:
+            ErrorResponse(**response.json())
+        except ValidationError as e:
+            pytest.fail(f"Create node response schema validation failed: {e}")
 
     @allure.title("Create node with override values")
     @allure.severity(allure.severity_level.NORMAL)
