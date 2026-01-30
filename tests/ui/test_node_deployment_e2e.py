@@ -6,6 +6,7 @@ from tests.ui.pages.login_page import LoginPage
 from tests.ui.pages.nodes_page import NodesListPage
 from tests.ui.pages.node_deployment_page import NodeDeploymentPage
 from tests.ui.constants.ui_constants import TIMEOUT_MAX, NODE_STATUS_MAX_WAIT
+from control_panel.node import NodeProtocol, NodeConfig
 
 
 @allure.feature("Nodes")
@@ -17,11 +18,11 @@ class TestNodeDeploymentE2E:
     @allure.title("Complete node deployment flow - {protocol_name}")
     @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.parametrize("protocol_name,config_name", [
-        ("Ethereum Sepolia Reth Prysm", "Ethereum Sepolia Reth Prysm Nano"),
-        ("Ethereum Mainnet Reth Prysm", "Ethereum Mainnet Reth Prysm Nano"),
-        ("Ethereum Hoodi Reth Prysm", "Ethereum Hoodi Reth Prysm Nano"),
+        (NodeProtocol.ETH_SEPOLIA, NodeConfig.ETH_SEPOLIA_NANO),
+        (NodeProtocol.ETH_MAINNET, NodeConfig.ETH_MAINNET_NANO),
+        (NodeProtocol.ETH_HOODIE, NodeConfig.ETH_HOODIE_NANO),
     ])
-    def test_complete_node_deployment_flow(self, page: Page, base_url: str, config, nodes_api_client, protocol_name: str, config_name: str):
+    def test_complete_node_deployment_flow(self, page: Page, base_url: str, config, authenticated_nodes_client, protocol_name: str, config_name: str):
         
         with allure.step("Login to the application"):
             login_page = LoginPage(page, base_url)
@@ -77,7 +78,7 @@ class TestNodeDeploymentE2E:
             deployment_page.verify_overview_page_loaded()
             node_name = deployment_page.get_node_name_from_title()
             node_id = deployment_page.get_node_id_from_url()
-            deployment_page.verify_node_info_card(api_client=nodes_api_client, node_id=node_id)
+            deployment_page.verify_node_info_card(api_client=authenticated_nodes_client, node_id=node_id)
 
         with allure.step("Verify node status shows Bootstrapping"):
             deployment_page.verify_node_status("Bootstrapping")
@@ -94,9 +95,14 @@ class TestNodeDeploymentE2E:
         with allure.step("Verify node info in list matches API data"):
             deployment_page.verify_node_list_info(
                 node_name=node_name,
-                api_client=nodes_api_client,
+                api_client=authenticated_nodes_client,
                 node_id=node_id
             )
+        
+        with allure.step("Search for node and verify it's visible"):
+            deployment_page.search_nodes(node_name)
+            deployment_page.verify_only_node_visible_in_search(node_name)
+            deployment_page.clear_search()
         
         with allure.step("Click on deployed node to open details"):
             deployment_page.click_node_in_list(node_name)
@@ -253,15 +259,15 @@ class TestNodeOverviewPage:
 
     @allure.title("Node overview page shows correct tabs")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_node_overview_tabs(self, page: Page, base_url: str, config, existing_node_ui):
+    def test_node_overview_tabs(self, page: Page, base_url: str, config, existing_node_id):
         """Verify node overview page shows correct tabs."""
-        node_id = existing_node_ui
+        node_id = existing_node_id
         
         with allure.step("Login and navigate to node overview"):
             login_page = LoginPage(page, base_url)
             login_page.open()
             login_page.login(config.admin_log, config.admin_pass)
-            page.goto(f"{base_url}/nodes/{node_id}")
+            page.goto(f"{base_url}/node-details/{node_id}")
         
         deployment_page = NodeDeploymentPage(page, base_url)
         

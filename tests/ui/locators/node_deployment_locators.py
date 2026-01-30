@@ -106,6 +106,8 @@ class NodeDeploymentLocators(BaseLocators):
     NODE_STATUS_DROPDOWN = ".nodes-status-dropdown"
     STATUS_DROPDOWN_OPTION = ".nodes-status-option"
     ADD_NODE_BUTTON = "button:has-text('+ Add node')"
+    NODES_LIST_SEARCH_INPUT = ".nodes-list-search-input"
+    NODES_LIST_FILTER_SELECT = ".nodes-list-filter-select"
     
     # Node list row cells
     NODE_LIST_NAME = ".nodes-list-node-name"
