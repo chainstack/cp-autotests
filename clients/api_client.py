@@ -149,6 +149,8 @@ class NodesAPIClient(APIClient):
             token=token or settings.api_token
         )
         self.nodes_list = []
+        self.sleep_period = 1
+        self.node_status_timeout = 60
 
     def create_node(self, preset_instance_id: str, preset_override_values: Optional[Dict[str, Any]] = None) -> httpx.Response:
         payload = {"preset_instance_id": preset_instance_id}
@@ -176,13 +178,14 @@ class NodesAPIClient(APIClient):
         for node_id in list(self.nodes_list):  # Iterate over copy
             self.schedule_delete_node(node_id)
 
-    def _wait_node_until_status(self, node_id: str, expected_status: NodeState, timeout: int = 60):
+    @allure.step("Waiting {node_id} to be {expected_status}")
+    def _wait_node_until_status(self, node_id: str, expected_status: NodeState, timeout: int = self.node_status_timeout):
         start_time = time.time()
         while time.time() - start_time < timeout:
             response = self.get_node(node_id)
             if response.json()["status"] == expected_status:
                 return
-            time.sleep(1)
+            time.sleep(self.sleep_period)
         raise Exception(f"Node {node_id} is not {expected_status} after {timeout} seconds")
 
 
