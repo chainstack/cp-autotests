@@ -39,7 +39,7 @@ class NodeDeploymentPage(BasePage):
     @allure.step("Verify protocol card selected: {protocol_name}")
     def verify_protocol_selected(self, protocol_name: str):
         """Verify a protocol card is selected."""
-        card_selector = self.locators.protocol_card_by_name(protocol_name)
+        self.locators.protocol_card_by_name(protocol_name)
         # After selection, button should be enabled
         expect(self.page.locator(self.locators.SELECT_CONFIG_BUTTON)).to_be_enabled()
 
@@ -328,11 +328,11 @@ class NodeDeploymentPage(BasePage):
         row = self.page.locator(self.locators.node_row_by_name(node_name))
         
         return {
-            "name": row.locator(self.locators.NODE_LIST_NAME).text_content().strip(),
-            "network": row.locator(self.locators.NODE_LIST_NETWORK).text_content().strip(),
-            "created_at": row.locator(self.locators.NODE_LIST_CREATED_AT).text_content().strip(),
-            "updated_at": row.locator(self.locators.NODE_LIST_UPDATED_AT).text_content().strip(),
-            "status": row.locator(self.locators.NODE_LIST_STATUS).text_content().strip(),
+            "name": (row.locator(self.locators.NODE_LIST_NAME).text_content() or "").strip(),
+            "network": (row.locator(self.locators.NODE_LIST_NETWORK).text_content() or "").strip(),
+            "created_at": (row.locator(self.locators.NODE_LIST_CREATED_AT).text_content() or "").strip(),
+            "updated_at": (row.locator(self.locators.NODE_LIST_UPDATED_AT).text_content() or "").strip(),
+            "status": (row.locator(self.locators.NODE_LIST_STATUS).text_content() or "").strip(),
         }
 
     @allure.step("Verify node info in list")
