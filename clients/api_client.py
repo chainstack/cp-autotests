@@ -179,7 +179,9 @@ class NodesAPIClient(APIClient):
             self.schedule_delete_node(node_id)
 
     @allure.step("Waiting {node_id} to be {expected_status}")
-    def _wait_node_until_status(self, node_id: str, expected_status: NodeState, timeout: int = self.node_status_timeout):
+    def _wait_node_until_status(self, node_id: str, expected_status: NodeState, timeout: int = None):
+        if timeout is None:
+            timeout = self.node_status_timeout
         start_time = time.time()
         while time.time() - start_time < timeout:
             response = self.get_node(node_id)
