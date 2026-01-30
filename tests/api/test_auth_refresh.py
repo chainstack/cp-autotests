@@ -3,7 +3,7 @@ import allure
 import time
 from pydantic import ValidationError
 from tests.api.schemas.auth_schemas import LoginResponse, RefreshTokenResponse, ErrorResponse, UserProfile
-from utils.token_generator import generate_invalid_refresh_tokens, generate_invalid_bearer_tokens
+from utils.token_generator import generate_invalid_refresh_tokens, generate_invalid_bearer_tokens, generate_expired_token, generate_expired_refresh_token
 import base64
 
 @allure.feature("Authentication")
@@ -64,12 +64,11 @@ class TestRefreshTokenManipulation:
         assert response.status_code in [400, 401], f"Expected 400 or 401, got {response.status_code}"
         ErrorResponse(**response.json())
 
-    #TODO generate expired refresh tokens
     @allure.title("Refresh token fails with expired refresh token")
     @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.slow
     def test_refresh_token_expired(self, auth_client):
-        expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj0vVzr7B8Y8P9nGJ5pZXkJZ5JZ5JZ5JZ5JZ5JZ5"
+        expired_token = generate_expired_refresh_token()
         
         response = auth_client.post_refresh(expired_token)
         
@@ -171,12 +170,11 @@ class TestRefreshTokenAccess:
         ErrorResponse(**response.json())
         authenticated_auth_client.token = token
 
-    #TODO add expired token generation
     @allure.title("Refresh fails with expired access token")
     @allure.severity(allure.severity_level.NORMAL)
     def test_refresh_expired_token(self, authenticated_auth_client):
         token = authenticated_auth_client.token
-        expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj0vVzr7B8Y8P9nGJ5pZXkJZ5JZ5JZ5JZ5JZ5JZ5"
+        expired_token = generate_expired_token()
         authenticated_auth_client.token = expired_token
         
         response = authenticated_auth_client.post_refresh(authenticated_auth_client.refresh_token)

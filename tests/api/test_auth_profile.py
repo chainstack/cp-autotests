@@ -2,7 +2,7 @@ import pytest
 import allure
 from pydantic import ValidationError
 from tests.api.schemas.auth_schemas import UserProfile, ErrorResponse
-from utils.token_generator import generate_invalid_tokens
+from utils.token_generator import generate_invalid_bearer_tokens, generate_expired_token
 import base64
 
 
@@ -129,7 +129,7 @@ class TestProfileAccess:
 
     @allure.title("Get profile fails with invalid token")
     @allure.severity(allure.severity_level.NORMAL)
-    @pytest.mark.parametrize("invalid_token", generate_invalid_tokens())
+    @pytest.mark.parametrize("invalid_token", generate_invalid_bearer_tokens())
     def test_get_profile_invalid_token(self, authenticated_auth_client, invalid_token):
         authenticated_auth_client.token = invalid_token
         
@@ -138,12 +138,11 @@ class TestProfileAccess:
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
         ErrorResponse(**response.json())
 
-    #TODO add expired token generation
     @allure.title("Get profile fails with expired token")
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_profile_expired_token(self, authenticated_auth_client):
         token = authenticated_auth_client.token
-        expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj0vVzr7B8Y8P9nGJ5pZXkJZ5JZ5JZ5JZ5JZ5JZ5"
+        expired_token = generate_expired_token()
         authenticated_auth_client.token = expired_token
         
         response = authenticated_auth_client.get_profile()

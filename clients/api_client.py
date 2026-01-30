@@ -2,6 +2,9 @@ import httpx
 import allure
 from typing import Optional, Dict, Any
 from config.settings import Settings
+from utils.http_logger import LogHTTPResponse
+import time
+from control_panel.node import NodeState
 
 
 class APIClient:
@@ -28,6 +31,10 @@ class APIClient:
         
         return headers
 
+    def _log_response(self, response: httpx.Response, stage: str) -> httpx.Response:
+        LogHTTPResponse(response, stage)
+        return response
+
     @allure.step("GET {endpoint}")
     def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, 
             headers: Optional[Dict[str, str]] = None) -> httpx.Response:
@@ -40,7 +47,7 @@ class APIClient:
             allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
             allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
         
-        return response
+        return self._log_response(response, f"GET {endpoint}")
 
     @allure.step("POST {endpoint}")
     def post(self, endpoint: str, json: Optional[Dict[str, Any]] = None,
@@ -54,7 +61,8 @@ class APIClient:
             allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
             allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
         
-        return response
+        return self._log_response(response, f"POST {endpoint}")
+
 
     @allure.step("PUT {endpoint}")
     def put(self, endpoint: str, json: Optional[Dict[str, Any]] = None,
@@ -68,7 +76,7 @@ class APIClient:
             allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
             allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
         
-        return response
+        return self._log_response(response, f"PUT {endpoint}")
 
     @allure.step("DELETE {endpoint}")
     def delete(self, endpoint: str, headers: Optional[Dict[str, str]] = None) -> httpx.Response:
@@ -80,7 +88,7 @@ class APIClient:
             allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
             allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
         
-        return response
+        return self._log_response(response, f"DELETE {endpoint}")
 
     @allure.step("PATCH {endpoint}")
     def patch(self, endpoint: str, json: Optional[Dict[str, Any]] = None,
@@ -94,7 +102,7 @@ class APIClient:
             allure.attach(response.text, "Response Body", allure.attachment_type.JSON)
             allure.attach(str(response.status_code), "Status Code", allure.attachment_type.TEXT)
         
-        return response
+        return self._log_response(response, f"PATCH {endpoint}")
 
     @allure.step("Custom Request {method} {endpoint}")
     def send_custom_request(self, method: str, endpoint: str, 
@@ -135,26 +143,52 @@ class APIClient:
 
 
 class NodesAPIClient(APIClient):
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, token: Optional[str] = None):
         super().__init__(
             base_url=settings.cp_nodes_api_url,
-            token=settings.api_token
+            token=token or settings.api_token
         )
+        self.nodes_list = []
+        self.sleep_period = 1
+        self.node_status_timeout = 60
 
-    def create_node(self, node_data: Dict[str, Any]) -> httpx.Response:
-        return self.post("/ui/nodes", json=node_data)
+    def create_node(self, preset_instance_id: str, preset_override_values: Optional[Dict[str, Any]] = None) -> httpx.Response:
+        payload = {"preset_instance_id": preset_instance_id}
+        if preset_override_values:
+            payload["preset_override_values"] = preset_override_values
+        response = self.post("/v1/ui/nodes", json=payload)
+        if response.status_code == 201:
+            self.nodes_list.append(response.json()["deployment_id"])
+        return response
 
-    def get_nodes(self, filters: Optional[Dict[str, Any]] = None) -> httpx.Response:
-        return self.get("/ui/nodes", params=filters)
+    def list_nodes(self) -> httpx.Response:
+        return self.get("/v1/ui/nodes")
 
     def get_node(self, node_id: str) -> httpx.Response:
-        return self.get(f"/ui/nodes/{node_id}")
+        return self.get(f"/v1/ui/nodes/{node_id}")
 
-    def update_node(self, node_id: str, update_data: Dict[str, Any]) -> httpx.Response:
-        return self.put(f"/ui/nodes/{node_id}", json=update_data)
+    def schedule_delete_node(self, node_id: str) -> httpx.Response:
+        operational_node_id = node_id.lower()
+        response = self.post(f"/v1/ui/nodes/{node_id}/schedule-delete")
+        if response.status_code == 200 and operational_node_id in self.nodes_list:
+            self.nodes_list.remove(operational_node_id)
+        return response
 
-    def delete_node(self, node_id: str) -> httpx.Response:
-        return self.delete(f"/ui/nodes/{node_id}")
+    def _teardown(self):
+        for node_id in list(self.nodes_list):  # Iterate over copy
+            self.schedule_delete_node(node_id)
+
+    @allure.step("Waiting {node_id} to be {expected_status}")
+    def _wait_node_until_status(self, node_id: str, expected_status: NodeState, timeout: int = None):
+        if timeout is None:
+            timeout = self.node_status_timeout
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            response = self.get_node(node_id)
+            if response.json()["status"] == expected_status:
+                return
+            time.sleep(self.sleep_period)
+        raise Exception(f"Node {node_id} is not {expected_status} after {timeout} seconds")
 
 
 class InternalAPIClient(APIClient):

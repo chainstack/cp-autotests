@@ -1,7 +1,9 @@
 import pytest
+import time
 from clients.api_client import NodesAPIClient, InternalAPIClient, AuthAPIClient
 from config.settings import Settings
 from faker import Faker
+from control_panel.node import NodeState
 
 @pytest.fixture(scope="session")
 def faker():
@@ -19,14 +21,6 @@ def internal_api_client(config: Settings):
     client = InternalAPIClient(config)
     yield client
     client.close()
-
-
-@pytest.fixture(scope="session")
-def authenticated_nodes_client(config: Settings):
-    client = NodesAPIClient(config)
-    yield client
-    client.close()
-
 
 @pytest.fixture(scope="function")
 def auth_client(config: Settings):
@@ -84,7 +78,6 @@ def invalid_credentials(invalid_username, invalid_password):
         "password": invalid_password
     }
 
-
 @pytest.fixture(scope="function")
 def password_reset_teardown(config: Settings):
     """
@@ -128,3 +121,60 @@ def password_reset_teardown(config: Settings):
             print(f"WARNING: Failed to login with new password for reset: {login_response.text}")
         client.close()
 
+# Node-specific fixtures
+
+@pytest.fixture(scope="session")
+def authenticated_nodes_client(config: Settings):
+    
+    auth_client = AuthAPIClient(config)
+    response = auth_client.login(config.admin_log, config.admin_pass)
+    
+    if response.status_code == 200:
+        token = response.json().get("access_token")
+        client = NodesAPIClient(config, token=token)
+        yield client
+        client._teardown()
+    else:
+        raise Exception(f"Failed to authenticate for nodes client: {response.status_code}")
+    auth_client.close()
+
+
+@pytest.fixture(scope="function")
+def existing_node_id(authenticated_nodes_client, valid_eth_preset_instance_id):
+    if authenticated_nodes_client.nodes_list:
+        return authenticated_nodes_client.nodes_list[0]
+    node_id = authenticated_nodes_client.create_node(preset_instance_id=valid_eth_preset_instance_id).json()["deployment_id"]
+    authenticated_nodes_client._wait_node_until_status(node_id, NodeState.RUNNING)
+    return node_id
+
+
+@pytest.fixture(scope="session")
+def valid_eth_preset_instance_id():
+    return "gts.c.cp.presets.blockchain_preset.v1.0~c.cp.presets.evm_preset.v1.0~c.cp.presets.evm_reth_prysm.v1.0~c.cp.presets.ethereum_mainnet.v1.0"
+
+@pytest.fixture(scope="session")
+def invalid_eth_preset_instance_id():
+    return "gts.c.cp.presets.blockchain_preset.v0.0~c.cp.presets.evm_preset.v0.0~c.cp.presets.evm_reth_prysm.v0.0~c.cp.presets.ethereum_mainnet.v0.0"
+
+
+@pytest.fixture(scope="function")
+def created_node_for_deletion(authenticated_nodes_client, valid_eth_preset_instance_id):
+    """Create a node specifically for deletion tests."""
+    deployment_response = authenticated_nodes_client.create_node(
+        preset_instance_id=valid_eth_preset_instance_id
+    )
+    if deployment_response.status_code == 201:
+        max_wait = 30
+        waited = 0
+        while waited < max_wait:
+            response = authenticated_nodes_client.get_node(deployment_response.json()["deployment_id"])
+            if response.status_code == 200:
+                current_status = response.json().get("status")
+                if current_status != NodeState.PENDING:
+                    break
+            time.sleep(1)
+            waited += 1
+        # Use deployment_response for deployment_id (get_node returns 'id', not 'deployment_id')
+        yield {"deployment_id": deployment_response.json()["deployment_id"]}
+    else:
+        pytest.skip(f"Could not create node for deletion test: {deployment_response.status_code}")

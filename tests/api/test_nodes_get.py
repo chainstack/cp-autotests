@@ -1,0 +1,214 @@
+import pytest
+import allure
+import base64
+from pydantic import ValidationError
+from tests.api.schemas.node_schemas import Node, ErrorResponse
+from utils.token_generator import generate_invalid_bearer_tokens
+from tests.api.cases.test_cases import INVALID_UUID_CASES
+from uuid import uuid4
+
+
+
+@allure.feature("Nodes")
+@allure.story("Get Node")
+@pytest.mark.api
+class TestNodesGetGeneral:
+
+    @allure.title("Get node successfully with valid ID")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.smoke
+    def test_get_node_success(self, authenticated_nodes_client, existing_node_id):
+        response = authenticated_nodes_client.get_node(existing_node_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        try:
+            node = Node(**response.json())
+            assert node.id == existing_node_id, f"Node ID mismatch"
+            assert node.name, "Node name should not be empty"
+            assert node.protocol, "Protocol should not be empty"
+            assert node.network, "Network should not be empty"
+            assert node.status, "Status should not be empty"
+        except ValidationError as e:
+            pytest.fail(f"Node response schema validation failed: {e}")
+
+    @allure.title("Get node contains revision with metadata")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_node_has_revision(self, authenticated_nodes_client, existing_node_id):
+        response = authenticated_nodes_client.get_node(existing_node_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        data = response.json()
+        
+        assert "revision" in data, "Node should have revision field"
+        revision = data["revision"]
+        assert "id" in revision, "Revision should have ID"
+        assert "metadata" in revision, "Revision should have metadata"
+        assert isinstance(revision["metadata"], list), "Metadata should be a list"
+
+    @allure.title("Get node includes correct timestamps")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_node_has_timestamps(self, authenticated_nodes_client, existing_node_id):
+        response = authenticated_nodes_client.get_node(existing_node_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        data = response.json()
+        
+        assert "created_at" in data, "Node should have created_at"
+        assert "updated_at" in data, "Node should have updated_at"
+
+    @allure.title("Get node check response headers")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_node_check_response_headers(self, authenticated_nodes_client, existing_node_id):
+        response = authenticated_nodes_client.get_node(existing_node_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert "application/json" in response.headers.get("Content-Type", ""), \
+            "Content-Type should be application/json"
+
+    @allure.title("Get node during pending state")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_node_pending_state(self, authenticated_nodes_client, valid_eth_preset_instance_id):
+        create_response = authenticated_nodes_client.create_node(
+            preset_instance_id=valid_eth_preset_instance_id
+        )
+        assert create_response.status_code == 201
+        node_id = create_response.json()["deployment_id"]
+        
+        response = authenticated_nodes_client.get_node(node_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.json()["status"] == "pending", "Node should be pending"
+        assert response.json()["id"] == node_id
+
+    @allure.title("Get recently deleted node")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_deleted_node(self, authenticated_nodes_client, valid_eth_preset_instance_id):
+        from control_panel.node import NodeState
+        
+        create_response = authenticated_nodes_client.create_node(
+            preset_instance_id=valid_eth_preset_instance_id
+        )
+        assert create_response.status_code == 201
+        node_id = create_response.json()["deployment_id"]
+        
+        authenticated_nodes_client._wait_node_until_status(node_id, NodeState.RUNNING)
+        authenticated_nodes_client.schedule_delete_node(node_id)
+        authenticated_nodes_client._wait_node_until_status(node_id, NodeState.DELETED)
+        
+        response = authenticated_nodes_client.get_node(node_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.json()["status"] == NodeState.DELETED
+
+
+@allure.feature("Nodes")
+@allure.story("Get Node")
+@pytest.mark.api
+class TestNodesGetValidation:
+
+    @allure.title("Get node with uppercase UUID")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_node_uppercase_uuid(self, authenticated_nodes_client, existing_node_id):
+        uppercase_id = existing_node_id.upper()
+        
+        response = authenticated_nodes_client.get_node(uppercase_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        assert response.json()["id"].lower() == existing_node_id.lower()
+
+    @allure.title("Get node with mixed case UUID")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_node_mixed_case_uuid(self, authenticated_nodes_client, existing_node_id):
+        mid = len(existing_node_id) // 2
+        mixed_id = existing_node_id[:mid].upper() + existing_node_id[mid:].lower()
+        
+        response = authenticated_nodes_client.get_node(mixed_id)
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+
+    @pytest.mark.xfail(reason="https://chainstack.myjetbrains.com/youtrack/issue/CORE-13624")
+    @allure.title("Get node with invalid UUID format")
+    @allure.severity(allure.severity_level.NORMAL)
+    @pytest.mark.parametrize("invalid_id", INVALID_UUID_CASES)
+    def test_get_node_invalid_id_format(self, authenticated_nodes_client, invalid_id):
+        response = authenticated_nodes_client.get_node(invalid_id)
+        
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        ErrorResponse(**response.json())
+
+    @pytest.mark.xfail(reason="https://chainstack.myjetbrains.com/youtrack/issue/CORE-13624")
+    @allure.title("Get node with non-existent ID")
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_get_node_not_found(self, authenticated_nodes_client):
+        non_existent_id = str(uuid4())
+        response = authenticated_nodes_client.get_node(non_existent_id)
+        
+        assert response.status_code == 404, f"Expected 404, got {response.status_code}"
+        ErrorResponse(**response.json())
+
+    @allure.title("Get node with SQL injection attempt in ID")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.parametrize("malicious_id", [
+        "'; DROP TABLE nodes; --",
+        "1 OR 1=1",
+        "00000000-0000-0000-0000-000000000000' OR '1'='1",
+        "<script>alert('xss')</script>",
+    ])
+    def test_get_node_sql_injection(self, authenticated_nodes_client, malicious_id):
+        response = authenticated_nodes_client.get_node(malicious_id)
+        
+        assert response.status_code in [400, 404], f"Expected 400/404, got {response.status_code}"
+        if "application/json" in response.headers.get("Content-Type", ""):
+            ErrorResponse(**response.json())
+
+
+    @allure.title("Get node with invalid method")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.parametrize("method", ["POST", "PUT", "PATCH", "DELETE"])
+    def test_get_node_invalid_method(self, authenticated_nodes_client, existing_node_id, method):
+        response = authenticated_nodes_client.send_custom_request(endpoint=f"/nodes/v1/ui/{existing_node_id}", method=method)
+        
+        assert response.status_code == 405, f"Expected 405, got {response.status_code}"
+
+
+@allure.feature("Nodes")
+@allure.story("Get Node")
+@pytest.mark.api
+class TestNodesGetAccess:
+
+    @allure.title("Get node without authentication token")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_get_node_without_auth_token(self, authenticated_nodes_client, existing_node_id):
+        token = authenticated_nodes_client.token
+        authenticated_nodes_client.token = None
+        
+        response = authenticated_nodes_client.get_node(existing_node_id)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_nodes_client.token = token
+
+    @allure.title("Get node with invalid authentication token")
+    @allure.severity(allure.severity_level.CRITICAL)
+    @pytest.mark.parametrize("invalid_token", generate_invalid_bearer_tokens())
+    def test_get_node_with_invalid_token(self, authenticated_nodes_client, existing_node_id, invalid_token):
+        token = authenticated_nodes_client.token
+        authenticated_nodes_client.token = invalid_token
+        
+        response = authenticated_nodes_client.get_node(existing_node_id)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_nodes_client.token = token
+
+    @allure.title("Get node with wrong auth type (Basic instead of Bearer)")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_get_node_with_wrong_auth_type(self, authenticated_nodes_client, existing_node_id):
+        token = authenticated_nodes_client.token
+        authenticated_nodes_client.token = "Basic " + base64.b64encode(token.encode()).decode()
+        
+        response = authenticated_nodes_client.get_node(existing_node_id)
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        ErrorResponse(**response.json())
+        authenticated_nodes_client.token = token

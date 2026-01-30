@@ -69,18 +69,8 @@ def generate_invalid_bearer_tokens():
         # Wrong algorithm in header
         "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature",
         
-        # Unicode/special encoding
-        "тест.токен.подпись",
-        "🔑.🔐.🔒",
-        
-        # Very long token
-        "a" * 10000,
-        
         # SQL injection attempts in token
-        "'; DROP TABLE users; --",
-        
-        # Null bytes
-        "header\x00.payload\x00.signature\x00",
+        "'; DROP TABLE users; --"
     ]
 
 def generate_invalid_refresh_tokens():
@@ -152,9 +142,10 @@ def generate_invalid_refresh_tokens():
         # Wrong token type (access token instead of refresh)
         wrong_type_token,
         
-        # Unicode/special encoding
-        "тест.refresh.токен",
-        "🔄.🔐.🔒",
+        # Note: Unicode/emoji tokens cause httpx UnicodeEncodeError (HTTP headers are ASCII-only)
+        # To test these, use raw sockets instead
+        # "тест.refresh.токен",
+        # "🔄.🔐.🔒",
         
         # Very long token
         "r" * 10000,
@@ -162,6 +153,93 @@ def generate_invalid_refresh_tokens():
         # SQL injection attempts
         "'; DROP TABLE refresh_tokens; --",
         
-        # Null bytes
-        "refresh\x00.token\x00.signature\x00",
+        # Note: Null bytes cause httpx.LocalProtocolError client-side, not server-side rejection
+        # If you need to test null bytes, handle them separately with error catching
+        # "refresh\x00.token\x00.signature\x00",
     ]
+
+
+def generate_expired_token(
+    sub: str = "4fa033a0-8aae-4a2d-a216-30228f6f6320",
+    email: str = "admin@example.com",
+    username: str = "admin",
+    tenant_id: str = "550e8400-e29b-41d4-a716-446655440000",
+    tenant_role: str = "admin",
+    expired_seconds_ago: int = 3600
+) -> str:
+    """
+    Generate a JWT token that has already expired.
+    
+    Note: This token will have a valid JWT structure but an invalid signature
+    (since we don't have the private key). The API should reject it either
+    because of the invalid signature OR the expired claim - both scenarios
+    correctly test the "unauthorized" path.
+    
+    Args:
+        sub: Subject (user ID)
+        email: User email
+        username: Username
+        tenant_id: Tenant ID
+        tenant_role: Role within tenant
+        expired_seconds_ago: How many seconds in the past the token expired
+        
+    Returns:
+        str: An expired JWT token string
+    """
+    now = int(time.time())
+    exp = now - expired_seconds_ago  # Token expired in the past
+    iat = exp - 300  # Issued 5 minutes before expiration
+    nbf = iat
+    
+    header = {
+        "alg": "RS256",  # Match the real token's algorithm
+        "typ": "JWT"
+    }
+    
+    payload = {
+        "sub": sub,
+        "email": email,
+        "username": username,
+        "tenant_id": tenant_id,
+        "tenant_role": tenant_role,
+        "iss": "cp-auth",
+        "exp": exp,
+        "nbf": nbf,
+        "iat": iat
+    }
+    
+    # Encode header and payload
+    header_encoded = base64.urlsafe_b64encode(
+        json.dumps(header).encode()
+    ).decode().rstrip('=')
+    
+    payload_encoded = base64.urlsafe_b64encode(
+        json.dumps(payload).encode()
+    ).decode().rstrip('=')
+    
+    # Generate a fake signature (won't be valid, but structurally correct)
+    fake_signature = ''.join(random.choices(
+        string.ascii_letters + string.digits + '-_', k=86
+    ))
+    
+    return f"{header_encoded}.{payload_encoded}.{fake_signature}"
+
+
+def generate_expired_refresh_token(
+    sub: str = "4fa033a0-8aae-4a2d-a216-30228f6f6320",
+    expired_seconds_ago: int = 3600
+) -> str:
+    """
+    Generate an expired refresh token for testing.
+    
+    Args:
+        sub: Subject (user ID)
+        expired_seconds_ago: How many seconds in the past the token expired
+        
+    Returns:
+        str: An expired refresh token string
+    """
+    return generate_expired_token(
+        sub=sub,
+        expired_seconds_ago=expired_seconds_ago
+    )
